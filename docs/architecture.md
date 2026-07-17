@@ -6,55 +6,89 @@ Memora is a monorepo application composed of five packages that work together to
 
 The architecture follows a clear separation between synchronous HTTP handling and asynchronous job processing. The Fastify API server handles all client-facing requests—authentication, ingestion, search, and settings—while a dedicated BullMQ worker handles compute-intensive tasks like embedding generation, memory consolidation, and loop engineering processes.
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                      Browser Extension (MV3)                        │
-│  ┌─────────────┐  ┌──────────────┐  ┌───────────┐  ┌────────────┐  │
-│  │ Content      │  │ Background   │  │ Sidebar   │  │ Popup      │  │
-│  │ Script       │  │ Service      │  │ Panel     │  │            │  │
-│  │              │  │ Worker       │  │           │  │            │  │
-│  └──────┬───────┘  └──────┬───────┘  └─────┬─────┘  └────────────┘  │
-│         └─────────────────┼────────────────┘                        │
-└───────────────────────────┼──────────────────────────────────────────┘
-                            │ HTTPS
-                            ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                     API Server (Fastify)                             │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐ │
-│  │ Auth     │  │ Ingest   │  │ Search   │  │ Billing / Settings   │ │
-│  │ Routes   │  │ Routes   │  │ Routes   │  │ Routes               │ │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────────┬───────────┘ │
-│       │              │             │                   │             │
-│       ▼              ▼             ▼                   ▼             │
-│  ┌──────────────────────────────────────────────────────────────────┐│
-│  │                     Service Layer                                ││
-│  │  AuthService · MemoryService · SearchService · BillingService   ││
-│  └──────┬──────────────┬───────────────┬──────────────┬────────────┘│
-└─────────┼──────────────┼───────────────┼──────────────┼─────────────┘
-          │              │               │              │
-          ▼              ▼               ▼              ▼
-   ┌────────────┐  ┌──────────┐  ┌────────────┐  ┌──────────┐
-   │ PostgreSQL │  │  Qdrant  │  │   Redis    │  │  Stripe  │
-   │  (Prisma)  │  │ (Vector) │  │(Cache/Jobs)│  │  (API)   │
-   └────────────┘  └──────────┘  └──────┬─────┘  └──────────┘
-                                        │
-                                        ▼
-                              ┌──────────────────┐
-                              │  BullMQ Worker   │
-                              │  ┌────────────┐  │
-                              │  │ Embed Job  │  │
-                              │  │ Consolidate│  │
-                              │  │ Reflect    │  │
-                              │  │ Evaluate   │  │
-                              │  │ Dream      │  │
-                              │  └────────────┘  │
-                              │        │         │
-                              │        ▼         │
-                              │  ┌────────────┐  │
-                              │  │ Voyage AI  │  │
-                              │  │ Gemini LLM │  │
-                              │  └────────────┘  │
-                              └──────────────────┘
+```mermaid
+graph TD
+    subgraph Browser Extension (MV3)
+        ContentScript[Content Script]
+        BackgroundWorker[Background Service Worker]
+        SidebarPanel[Sidebar Panel]
+        Popup[Popup UI]
+    end
+
+    subgraph API Server (Fastify)
+        AuthRoutes[Auth Routes]
+        IngestRoutes[Ingest Routes]
+        SearchRoutes[Search Routes]
+        BillingRoutes[Billing & Settings Routes]
+        
+        AuthService[Auth Service]
+        MemoryService[Memory Service]
+        SearchService[Search Service]
+        BillingService[Billing Service]
+    end
+
+    subgraph Storage & Infrastructure
+        Postgres[(PostgreSQL + Prisma)]
+        Qdrant[(Qdrant Vector DB)]
+        Redis[(Redis Cache / BullMQ Backend)]
+        Stripe[Stripe API]
+    end
+
+    subgraph Background Worker (BullMQ)
+        BullWorker[Worker Process]
+        EmbedJob[Embed Job]
+        ConsolidateJob[Consolidate Job]
+        ReflectJob[Reflect Job]
+        EvaluateJob[Evaluate Job]
+        DreamJob[Dream Job]
+    end
+
+    subgraph AI Models
+        Voyage[Voyage AI Embeddings]
+        Gemini[Google Gemini LLM]
+    end
+
+    %% Communication Flows
+    ContentScript -->|Local IPC| BackgroundWorker
+    SidebarPanel -->|Local IPC| BackgroundWorker
+    Popup -->|Local IPC| BackgroundWorker
+    
+    BackgroundWorker -->|HTTPS / WSS| AuthRoutes
+    BackgroundWorker -->|HTTPS / WSS| IngestRoutes
+    BackgroundWorker -->|HTTPS / WSS| SearchRoutes
+    BackgroundWorker -->|HTTPS / WSS| BillingRoutes
+
+    AuthRoutes --> AuthService
+    IngestRoutes --> MemoryService
+    SearchRoutes --> SearchService
+    BillingRoutes --> BillingService
+
+    AuthService --> Postgres
+    AuthService --> Redis
+    
+    MemoryService --> Postgres
+    MemoryService --> Redis
+    
+    SearchService --> Qdrant
+    SearchService --> Voyage
+    SearchService --> Gemini
+    
+    BillingService --> Postgres
+    BillingService --> Stripe
+
+    Redis -->|Queue Jobs| BullWorker
+    BullWorker --> EmbedJob
+    BullWorker --> ConsolidateJob
+    BullWorker --> ReflectJob
+    BullWorker --> EvaluateJob
+    BullWorker --> DreamJob
+
+    EmbedJob --> Voyage
+    EmbedJob --> Qdrant
+    ConsolidateJob --> Gemini
+    ReflectJob --> Gemini
+    DreamJob --> Gemini
+    DreamJob --> Qdrant
 ```
 
 ---

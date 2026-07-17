@@ -1,52 +1,52 @@
-export const searchBodySchema = {
-  type: 'object',
-  required: ['query'],
-  properties: {
-    query: { type: 'string', minLength: 1 },
-    filters: {
-      type: 'object',
-      properties: {
-        source: { type: 'string' },
-        dateFrom: { type: 'string', format: 'date-time' },
-        dateTo: { type: 'string', format: 'date-time' },
-        tags: { type: 'array', items: { type: 'string' } },
-        folderId: { type: 'string' },
-      },
-    },
-    limit: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
-    offset: { type: 'integer', minimum: 0, default: 0 },
-  },
-} as const;
+import { z } from 'zod';
+import { MemorySource } from '../constants';
 
-export const searchResponseSchema = {
-  type: 'object',
-  properties: {
-    results: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          id: { type: 'string' },
-          content: { type: 'string' },
-          title: { type: 'string' },
-          url: { type: 'string' },
-          source: { type: 'string' },
-          timestamp: { type: 'string' },
-          score: { type: 'number' },
-          chunkId: { type: 'string' },
-          metadata: { type: 'object' },
-        },
-      },
-    },
-    synthesizedAnswer: {
-      type: 'object',
-      properties: {
-        answer: { type: 'string' },
-        sources: { type: 'array' },
-        confidence: { type: 'number' },
-      },
-    },
-    total: { type: 'integer' },
-    took: { type: 'number' },
-  },
-} as const;
+export const searchFiltersSchema = z.object({
+  source: z.nativeEnum(MemorySource).optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  folderId: z.string().optional(),
+});
+
+export const searchBodySchema = z.object({
+  query: z.string().min(1),
+  filters: searchFiltersSchema.optional(),
+  limit: z.number().int().min(1).max(50).default(10),
+  offset: z.number().int().min(0).default(0),
+});
+
+export const searchResultSchema = z.object({
+  id: z.string(),
+  content: z.string(),
+  title: z.string(),
+  url: z.string(),
+  source: z.nativeEnum(MemorySource),
+  timestamp: z.string(),
+  score: z.number(),
+  chunkId: z.string(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export const sourceReferenceSchema = z.object({
+  url: z.string(),
+  title: z.string(),
+  chunkId: z.string(),
+  snippet: z.string(),
+});
+
+export const synthesizedAnswerSchema = z.object({
+  answer: z.string(),
+  sources: z.array(sourceReferenceSchema),
+  confidence: z.number(),
+});
+
+export const searchResponseSchema = z.object({
+  results: z.array(searchResultSchema),
+  synthesizedAnswer: synthesizedAnswerSchema.optional(),
+  total: z.number().int(),
+  took: z.number(),
+});
+
+export type SearchBodyDto = z.infer<typeof searchBodySchema>;
+export type SearchResponseDto = z.infer<typeof searchResponseSchema>;
