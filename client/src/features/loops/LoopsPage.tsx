@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Cpu, RefreshCw, AlertCircle } from 'lucide-react';
+import { Cpu, RefreshCw } from 'lucide-react';
 import { api } from '../../api/client.js';
 
 export default function LoopsPage() {
@@ -9,8 +9,7 @@ export default function LoopsPage() {
   const triggerLoop = async (loopType: string) => {
     setRunning({ ...running, [loopType]: true });
     try {
-      // Dispatch runner trigger to backend loops trigger
-      const response = await api.post('/api/proactive', {
+      await api.post('/api/proactive', {
         type: 'loop-trigger',
         identifier: loopType,
         recentText: `Triggering loops for ${loopType}`,
@@ -43,9 +42,9 @@ export default function LoopsPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto animate-fade-in">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-white font-sans">Reflection Loops</h1>
+    <div className="flex flex-col gap-6 max-w-4xl mx-auto animate-fade-in font-sans">
+      <div className="flex flex-col gap-1 select-none">
+        <h1 className="text-2xl font-bold text-white tracking-wide">Reflection Loops</h1>
         <p className="text-sm text-memora-text-muted">
           Active background processors optimizing indexing, mapping latent semantic relations, and consolidating logs.
         </p>
@@ -53,17 +52,18 @@ export default function LoopsPage() {
 
       <div className="grid grid-cols-1 gap-4">
         {loops.map((loop) => (
-          <div key={loop.type} className="glass p-5 rounded-xl flex justify-between items-start">
+          <div key={loop.type} className="glass p-5 rounded-2xl border border-white/5 border-t border-white/12 flex justify-between items-start hover:scale-[1.01] hover:border-white/15 active:scale-[0.99] transition-all duration-250 ease-out">
             <div className="flex gap-4">
-              <div className="p-3 bg-memora-bg rounded-lg">
-                <Cpu className="text-memora-accent" size={24} />
+              <div className="p-3 bg-memora-bg rounded-xl border border-memora-border">
+                <Cpu className="text-memora-accent animate-pulse" size={20} />
               </div>
+              
               <div className="flex flex-col gap-1 max-w-md">
-                <span className="font-bold text-white leading-tight">{loop.label}</span>
+                <span className="font-bold text-white text-base leading-snug">{loop.label}</span>
                 <span className="text-xs text-memora-text-muted leading-relaxed">{loop.desc}</span>
                 
                 {results[loop.type] && (
-                  <div className="mt-3 bg-memora-bg p-3 rounded border border-memora-border flex flex-col gap-1 text-xs">
+                  <div className="mt-4 bg-[#050508]/60 p-3 rounded-xl border border-memora-border flex flex-col gap-1 text-xs animate-fade-in">
                     <span className={`font-semibold ${results[loop.type].status === 'COMPLETED' ? 'text-green-400' : 'text-red-400'}`}>
                       {results[loop.type].status}
                     </span>
@@ -76,7 +76,7 @@ export default function LoopsPage() {
             <button
               disabled={running[loop.type]}
               onClick={() => triggerLoop(loop.type)}
-              className="px-4 py-2 bg-memora-accent text-white font-semibold text-xs rounded hover:bg-memora-accent-hover disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+              className="px-4 py-2 bg-memora-accent text-white font-semibold text-xs rounded-lg hover:bg-memora-accent-hover active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
             >
               {running[loop.type] ? (
                 <>
