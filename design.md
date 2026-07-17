@@ -1,205 +1,105 @@
-# Memora Design System — "Obsidian Memory" Specification
+# Memora Design System: "Obsidian Memory" Aesthetic
 
-**Version:** 3.0.0  
-**Scope:** Client Dashboard (`client/`), Extension Panels (`extension/`), and Shared Component Libraries.  
-**Theme:** Dark-First OLED, Structured Bento, Bounded Materials, and Functional Motion.
+This document outlines the architectural and aesthetic standards for the Memora platform. All future components, views, and style updates must strictly adhere to these guidelines to maintain a premium, immersive, state-of-the-art user experience.
 
 ---
 
-## 1. Depth & Elevation: OLED Hierarchy
+## 🌌 1. The Canvas Backdrop (Depth & Texture)
 
-To prevent screen glare and astigmatism fatigue, we enforce a strict **Dark-First elevation scale**. We use deep grays and inner highlights instead of traditional drop shadows.
+Rather than flat, dull background layers, the Memora workspace utilizes a highly textured, dimensional universe style:
 
-```
-[Level 3: Modal/Dialog] - #222230  (Floating commands/Settings)
-   |
-[Level 2: Active/Hover] - #181824  (Active memory node focus)
-   |
-[Level 1: Layout Card]  - #0F0F16  (Default bento item/Note container)
-   |
-[Level 0: Viewport Base] - #050508  (Deep black background)
-```
-
-### Neumorphic Inner Highlight
-All Level 1 & 2 cards use a `1px` top-border inner highlight mimicking physical light reflection on obsidian edges:
-```css
-.card-elevation-1 {
-  background-color: #0F0F16;
-  border: 1px solid rgba(44, 44, 61, 0.5);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-```
+*   **Primary Background Color**: Strict, deep obsidian space black `bg-[#050508]`.
+*   **Ambient Cosmic Glows**: Embedded 3-layered slow-pulsing radial mesh gradients floating in the background:
+    *   Top-Right: `#7c3aed` (purple-600) with a `blur-[140px]` at `30%` opacity (evoking active memory clusters).
+    *   Center-Left: `#06b6d4` (cyan-500) with a `blur-[160px]` at `25%` opacity (evoking search path pathways).
+    *   Bottom-Right: `#050508` base depth.
+*   **Tactile Dot Grid Mask**: A fine, repeating `4rem_4rem` grid layer masked with a radial gradient:
+    ```css
+    background-image: linear-gradient(to right, rgba(255,255,255,0.01) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255,255,255,0.01) 1px, transparent 1px);
+    mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 60%, transparent 100%);
+    ```
 
 ---
 
-## 2. Layout & Bento Responsive Flow
+## 🧊 2. Translucent Glassmorphic Cards (The Materials)
 
-Bento grid layouts must be designed deliberately for mobile viewports rather than relying on automatic CSS grid reflows.
+Workspace panels and overlays are designed as translucent glass plates floating over the cosmic backdrop:
 
-```
-Desktop:
-+-------------------+-------------------+
-|     Search (K)    |   Active Tasks    |  <- (Z-Axis Layer 2 Dropdown)
-+---------+---------+---------+---------+
-| Bento 1 | Bento 2 | Bento 3 | Bento 4 |
-+---------+---------+---------+---------+
-|       Feed Stream / Timeline          |
-+---------------------------------------+
-
-Mobile Reflow (Explicit Order):
-1. Search omnibar (Fixed focus)
-2. Bento 1 & Bento 2 (side-by-side)
-3. Feed Stream / Timeline (Single Column)
-4. Bento 3 & Bento 4 (appended to foot)
-```
-
-### Responsive CSS Implementation
-```css
-.bento-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-@media (max-width: 768px) {
-  .bento-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .bento-feed-stream {
-    grid-order: 3; /* Placed immediately after basic search metrics */
-  }
-}
-```
+*   **Panel Transparency**:
+    *   Left Panel (Dashboard & Timeline): `rgba(15, 15, 22, 0.75)`
+    *   Right Panel (Proactive Sidebar & Chat): `rgba(10, 10, 15, 0.45)`
+    *   Header bar: `rgba(10, 10, 15, 0.45)`
+*   **Backdrop Blur**: Strict `backdrop-blur-[12px]` or `backdrop-blur-[16px]` applied to all primary panels, allowing the pulsing gradient glows to filter through beautifully.
+*   **Card Outlines**: Ultra-thin `border border-white/5`. Contrasts structural panels without heavy shadows.
+*   **Corner Radii**:
+    *   Primary split panels: `rounded-none` to anchor onto screen bounds cleanly.
+    *   Bento cards, memory-feed items, modals: `rounded-2xl` (12px) for a premium soft organic feel.
+    *   Action buttons, tags, input components: `rounded-lg` (8px).
 
 ---
 
-## 3. Typography: Variable Scroll & Monospace Accents
+## 🎨 3. Rich Color Palettes & HSL Glow Tokens
 
-Typography in Memora is treated as a **primary interface architecture** to reduce heavy imagery and page weight.
+Avoid generic solid hues. Use curated, vibrant gradient overlays and shadow blooms:
 
-### Variable Font Axes Configuration
-For headers (e.g. search query title tags), we modulate variable font weights dynamically in response to scroll positions to guide visual hierarchy.
-
-```javascript
-// Variable scroll font axis controller hook
-import { useEffect } from 'react';
-
-export function useScrollFontWeight(elementId: string) {
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollPct = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight);
-      const targetWeight = 400 + Math.floor(scrollPct * 300); // Scale from 400 (Regular) to 700 (Bold)
-      const el = document.getElementById(elementId);
-      if (el) {
-        el.style.fontVariationSettings = `'wght' ${targetWeight}`;
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [elementId]);
-}
-```
-
-### Font Pairing Guidelines
-- **Main Headings:** `Outfit` (sans-serif) or variable weight `Geist Sans` for a technical, crisp vibe.
-- **Body / AI Answer Text:** `Inter` set to `16px` (`text-base`) with `leading-relaxed` (`1.625`) to ensure readability.
-- **Identifiers / Code blocks:** `Geist Mono` for timestamps, tags, and citation hashes (e.g. `[note:qdrant-3f]`).
+*   **Primary Purple**: `oklch(58% 0.19 291)` (`#7c3aed`).
+*   **Cyan Accent**: `oklch(71% 0.13 220)` (`#06b6d4`).
+*   **Emerald Success**: `oklch(62% 0.17 145)`.
+*   **Amber Warning**: `oklch(78% 0.14 80)`.
+*   **Muted Slate**: `#8E8EA8` (text-muted) and `#2C2C3D` (border-slate).
+*   **Vibrant Gradient Text**: `linear-gradient(135deg, #a78bfa 0%, #22d3ee 100%)`.
+*   **HSL Shadow Blooms**:
+    *   Purple Bloom: `box-shadow: 0 0 25px rgba(124, 58, 237, 0.20)`.
+    *   Cyan Bloom: `box-shadow: 0 0 25px rgba(6, 182, 212, 0.15)`.
 
 ---
 
-## 4. Depth & Materiality (Liquid Glass Support)
+## 💬 4. Dialogue Flow & Bubble Aesthetics
 
-Glassmorphism is limited strictly to **floating layers** to minimize paint times and battery depletion on mobile screens.
+The chat and synthesis interfaces represent the master brain of the workspace, requiring stellar styling:
 
-- **Modals / Search suggestion overlays:** `backdrop-filter: blur(12px)` + `rgba(15, 15, 22, 0.75)`.
-- **Primary reading streams:** Solid background colors (`#0f0f16`) only.
-
-### Accessibility Safety Guardrail
-```css
-@media (prefers-reduced-transparency: reduce) {
-  .glass {
-    background: #0f0f16 !important;
-    backdrop-filter: none !important;
-  }
-}
-```
+*   **User Search Prompts**: Styled with a highly vibrant HSL glass gradient:
+    *   Class: `bg-gradient-to-tr from-[#7c3aed]/12 to-[#06b6d4]/8 text-white border border-[#7c3aed]/25 shadow-[0_0_15px_rgba(124,58,237,0.06)]`
+*   **AI Agent Response Bubbles**: Framed in crisp dark translucent plates:
+    *   Class: `bg-[#0f0f16]/90 backdrop-blur-md text-slate-200 border border-white/5 shadow-[0_0_20px_rgba(0,0,0,0.25)]`
+*   **Typing/Thinking State**: Displays a clean glass container matching the agent bubble style, populated with three slow-pulsing dots using staggering animation delays (`animation-delay: 0.2s/0.4s`).
 
 ---
 
-## 5. Motion Engineering (Lenis + GSAP ScrollTrigger)
+## ⚡ 5. Micro-Animations & Springs
 
-Memora uses smooth inertia scrolling to align scroll reveals cleanly with spatial layouts.
+Every interactive element must feel alive:
 
-### 5.1 Lenis initialization
-```javascript
-import Lenis from 'lenis';
-
-export const initSmoothScroll = () => {
-  const lenis = new Lenis({
-    duration: 1.2,
-    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-    gestureOrientation: 'vertical',
-  });
-
-  function raf(time: number) {
-    lenis.raf(time);
-    requestAnimationFrame(raf);
-  }
-
-  requestAnimationFrame(raf);
-  return lenis;
-};
-```
-
-### 5.2 Functional Staggered Line Reveal (Framer Motion)
-```typescript
-export const staggerContainerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.08,
-    },
-  },
-};
-
-export const staggerLineVariants = {
-  hidden: { y: 4, opacity: 0 },
-  show: { y: 0, opacity: 1, transition: { duration: 0.25, ease: 'easeOut' } },
-};
-```
+*   **Spring Parameters**: Springy entrances using Framer Motion:
+    *   Entrance style: `stiffness: 120`, `damping: 18` to give a premium, organic drift.
+*   **Hover Scaling**: Subtle visual expansions on hover:
+    *   MemoryCard, Bento blocks: `scale-[1.01]` or `scale-[1.02]`.
+    *   Interactive buttons: `active:scale-[0.98]` for responsive physical feedback.
+*   **Transition Speeds**: Standard hover transitions must utilize a clean `transition-all duration-250 ease-out` timing curve.
 
 ---
 
-## 6. Spatial Exploration (Knowledge Graph Engine Rules)
+## 🌌 6. WebGL 3D Physical Space & Layout Presets
 
-The 3D interactive knowledge graph uses HTML Canvas with rendering restrictions to prevent drop-off in frames.
+To fully immerse the user in their data, the interface bridges 3D graphics pipelines with standard 2D layout managers:
 
-1. **Mobile Rendering Throttling:** If rendering on a touch device, limit nodes to the 50 most recent memories; fall back to a flat 2D layout.
-2. **Progress indicator:** Always display a skeletal layout loading screen while graph relationships compile.
-3. **GPU release:** Clean up all Canvas drawing buffers and dispose of contexts when navigating away from `GraphPage`.
-
----
-
-## 7. Cognitive Inclusivity: ADHD Focus Mode
-
-ADHD Focus Mode can be toggled by the user to reduce background noise.
-
-```css
-/* Toggled layout class configuration */
-.adhd-focus-active .bento-metric-card,
-.adhd-focus-active .layout-sidebar,
-.adhd-focus-active .proactive-panel {
-  opacity: 0.15;
-  filter: blur(1.5px);
-  pointer-events: none;
-  transition: all 0.3s ease;
-}
-
-.adhd-focus-active .search-focus-container {
-  grid-column: span 12;
-  transform: scale(1.02);
-  z-index: 10;
-}
-```
+*   **Three.js Glass Node Material**: Nodes are rendered inside an interactive WebGL point cloud using:
+    ```typescript
+    new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(baseColor),
+      transparent: true,
+      opacity: active ? 0.85 : 0.12,
+      roughness: 0.1,
+      metalness: 0.15,
+      transmission: active ? 0.90 : 0.25, // Refractive glass transparency
+      thickness: active ? 2.0 : 0.3,     // Refracted light thickness
+      clearcoat: active ? 1.0 : 0.0,
+      clearcoatRoughness: 0.1,
+    })
+    ```
+*   **Active Camera Drifts**: Continuously rotates the spatial point cloud using smooth trigonometric drifts (`x: distance * Math.sin(angle), z: distance * Math.cos(angle)`) to keep the interface visually dynamic and alive.
+*   **Layout Preset Panel Resizes**: Resizes split panes using the smooth transitions of `react-resizable-panels`:
+    *   **ADHD Focus Mode**: Collapses sidebars and dashboard grids completely, focusing 100% space on the search container and active AI search synthesis box.
+    *   **Explorer Mode**: Standard split panel providing a 58%/42% workspace split (Left graph/Right content).
+    *   **Timeline Mode**: Focuses on the ingested web clips feed.
