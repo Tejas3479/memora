@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  --color-memora-bg: #0f0f14;
-  --color-memora-surface: #171721;
-  --color-memora-border: #2c2c3d;
-  --color-memora-accent: #7c3aed;
-  --color-memora-accent-hover: #6d28d9;
+  --color-memora-bg: #050508;
+  --color-memora-surface: #0f0f16;
+  --color-memora-border: rgba(44, 44, 61, 0.5);
+  --color-memora-accent: oklch(58% 0.19 291);
+  --color-memora-accent-hover: oklch(54% 0.18 291);
   --color-memora-text: #e4e4ed;
   --color-memora-text-muted: #8e8ea8;
-  --color-memora-accent-glow: rgba(124, 58, 237, 0.15);
+  --color-memora-accent-glow: rgba(124, 58, 237, 0.12);
 }
 
 @layer base {
@@ -19,18 +19,21 @@
   }
 }
 
-/* Glassmorphism utility helper card styling */
+/* Glassmorphism utility with neumorphic top inner glow */
 .glass {
-  background: rgba(23, 23, 33, 0.7);
+  background: rgba(15, 15, 22, 0.75);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(44, 44, 61, 0.6);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(44, 44, 61, 0.5);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px; /* squircle radius token alignment */
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass:hover {
-  background: rgba(23, 23, 33, 0.8);
-  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(24, 24, 36, 0.85);
+  border-color: rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.6);
 }
 
 /* Custom micro-animations */
@@ -45,9 +48,17 @@
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-slide-in-right {
-  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Fallback for reduced transparency preferences */
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: var(--color-memora-surface) !important;
+    backdrop-filter: none !important;
+  }
 }
