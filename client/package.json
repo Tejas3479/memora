@@ -11,12 +11,13 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@memora/shared": "workspace:*",
+    "lenis": "^1.3.25",
+    "lucide-react": "^0.475.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
-    "zustand": "^5.0.0",
-    "lucide-react": "^0.475.0",
-    "@memora/shared": "workspace:*"
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

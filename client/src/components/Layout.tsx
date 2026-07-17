@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore.js';
 import { useUiStore } from '../store/uiStore.js';
 import { useWebSocket } from '../hooks/useWebSocket.js';
+import { useSmoothScroll } from '../hooks/useSmoothScroll.js';
 import {
   Search,
   Clock,
@@ -26,8 +27,9 @@ export default function Layout() {
   const { user, logout } = useAuthStore();
   const { sidebarOpen, toggleSidebar, notifications, removeNotification, adhdFocusMode, toggleAdhdFocusMode } = useUiStore();
   
-  // Initialize websocket hook
+  // Initialize hooks
   useWebSocket();
+  useSmoothScroll();
 
   const handleLogout = async () => {
     await logout();
