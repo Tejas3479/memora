@@ -29,13 +29,18 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-memora-bg relative overflow-hidden">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-memora-accent/10 rounded-full blur-[100px] pointer-events-none"></div>
+    <div className="flex h-screen w-screen items-center justify-center bg-memora-bg relative overflow-hidden font-sans">
+      {/* Expanded Cosmic Radial Glows (Section 2) */}
+      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-memora-accent/5 rounded-full blur-[140px] pointer-events-none animate-pulse duration-10000"></div>
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#06b6d4]/5 rounded-full blur-[160px] pointer-events-none animate-pulse duration-8000"></div>
+      
+      {/* Tactile Dot Grid Mask */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-30 pointer-events-none select-none"></div>
 
-      <div className="w-full max-w-sm glass p-8 rounded-2xl flex flex-col gap-6 animate-fade-in relative z-10">
-        <div className="flex flex-col items-center text-center gap-1">
-          <span className="font-bold text-2xl text-white">Create Account</span>
-          <span className="text-sm text-memora-text-muted">Register to start capturing your knowledge</span>
+      <div className="w-full max-w-sm glass p-8 rounded-2xl flex flex-col gap-6 animate-fade-in relative z-10 hover:border-white/10 transition-all duration-300">
+        <div className="flex flex-col items-center text-center gap-1.5 select-none">
+          <span className="font-bold text-2xl text-white tracking-wide">Create Account</span>
+          <span className="text-xs text-memora-text-muted">Register to start capturing your knowledge</span>
         </div>
 
         {error && (
@@ -55,7 +60,7 @@ export default function RegisterPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full bg-memora-bg border border-memora-border pl-10 pr-4 py-2 rounded-lg text-sm text-white focus:outline-none focus:border-memora-accent"
+                className="w-full bg-memora-bg/60 border border-memora-border pl-10 pr-4 py-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-memora-accent focus:ring-2 focus:ring-memora-accent/20 transition-all duration-200"
               />
             </div>
           </div>
@@ -70,7 +75,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="user@example.com"
-                className="w-full bg-memora-bg border border-memora-border pl-10 pr-4 py-2 rounded-lg text-sm text-white focus:outline-none focus:border-memora-accent"
+                className="w-full bg-memora-bg/60 border border-memora-border pl-10 pr-4 py-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-memora-accent focus:ring-2 focus:ring-memora-accent/20 transition-all duration-200"
               />
             </div>
           </div>
@@ -85,7 +90,7 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-memora-bg border border-memora-border pl-10 pr-4 py-2 rounded-lg text-sm text-white focus:outline-none focus:border-memora-accent"
+                className="w-full bg-memora-bg/60 border border-memora-border pl-10 pr-4 py-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-memora-accent focus:ring-2 focus:ring-memora-accent/20 transition-all duration-200"
               />
             </div>
           </div>
@@ -93,13 +98,13 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-10 mt-2 bg-memora-accent text-white font-semibold rounded-lg text-sm hover:bg-memora-accent-hover flex items-center justify-center gap-2 shadow-lg shadow-memora-accent-glow disabled:opacity-50"
+            className="w-full h-10 mt-2 bg-memora-accent text-white font-semibold rounded-lg text-sm hover:bg-memora-accent-hover active:scale-98 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-memora-accent-glow disabled:opacity-50 cursor-pointer"
           >
             {loading ? <RefreshCw className="animate-spin" size={16} /> : 'Create Account'}
           </button>
         </form>
 
-        <div className="text-center text-xs text-memora-text-muted">
+        <div className="text-center text-xs text-memora-text-muted select-none">
           Already have an account?{' '}
           <Link to="/login" className="text-memora-accent font-semibold hover:underline">
             Sign In
