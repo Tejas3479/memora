@@ -12,7 +12,9 @@ interface UiState {
   theme: 'dark' | 'light';
   activeTab: string;
   notifications: NotificationItem[];
+  adhdFocusMode: boolean;
   toggleSidebar: () => void;
+  toggleAdhdFocusMode: () => void;
   setTheme: (theme: 'dark' | 'light') => void;
   setActiveTab: (tab: string) => void;
   addNotification: (title: string, message: string, type?: 'info' | 'success' | 'warning') => void;
@@ -24,8 +26,10 @@ export const useUiStore = create<UiState>((set) => ({
   theme: 'dark',
   activeTab: 'search',
   notifications: [],
+  adhdFocusMode: false,
 
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  toggleAdhdFocusMode: () => set((state) => ({ adhdFocusMode: !state.adhdFocusMode })),
   setTheme: (theme) => set({ theme }),
   setActiveTab: (activeTab) => set({ activeTab }),
 

@@ -15,6 +15,8 @@ import {
   LogOut,
   Bell,
   Menu,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 export default function Layout() {
@@ -22,7 +24,7 @@ export default function Layout() {
   const location = useLocation();
   
   const { user, logout } = useAuthStore();
-  const { sidebarOpen, toggleSidebar, notifications, removeNotification } = useUiStore();
+  const { sidebarOpen, toggleSidebar, notifications, removeNotification, adhdFocusMode, toggleAdhdFocusMode } = useUiStore();
   
   // Initialize websocket hook
   useWebSocket();
@@ -45,7 +47,7 @@ export default function Layout() {
   ];
 
   return (
-    <div className="flex h-screen w-screen bg-memora-bg text-memora-text overflow-hidden">
+    <div className={`flex h-screen w-screen bg-memora-bg text-memora-text overflow-hidden ${adhdFocusMode ? 'adhd-focus-active' : ''}`}>
       {/* Toast notifications container */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
         {notifications.map((n) => (
@@ -64,7 +66,7 @@ export default function Layout() {
       <aside
         className={`${
           sidebarOpen ? 'w-64' : 'w-20'
-        } shrink-0 bg-memora-surface border-r border-memora-border flex flex-col justify-between transition-all duration-300`}
+        } shrink-0 bg-memora-surface border-r border-memora-border flex flex-col justify-between transition-all duration-300 layout-sidebar`}
       >
         <div>
           <div className="flex h-16 items-center justify-between px-6 border-b border-memora-border">
@@ -126,7 +128,14 @@ export default function Layout() {
           <div className="font-semibold text-lg text-white">
             {navItems.find((item) => item.path === location.pathname)?.label || 'Dashboard'}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleAdhdFocusMode}
+              title={adhdFocusMode ? "Disable ADHD Focus Mode" : "Enable ADHD Focus Mode"}
+              className={`p-2 rounded-full hover:bg-memora-border relative transition-colors ${adhdFocusMode ? 'text-memora-accent' : 'text-memora-text-muted hover:text-white'}`}
+            >
+              {adhdFocusMode ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
             <button className="p-2 text-memora-text-muted hover:text-white rounded-full hover:bg-memora-border relative">
               <Bell size={20} />
               {notifications.length > 0 && (
