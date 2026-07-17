@@ -20,6 +20,46 @@ import {
   EyeOff,
 } from 'lucide-react';
 
+function FocusTimer() {
+  const [seconds, setSeconds] = React.useState(0);
+  const { addNotification } = useUiStore();
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setSeconds((prev) => {
+        const next = prev + 1;
+        if (next === 1500) {
+          addNotification(
+            'Focus Session Complete',
+            'You have been focusing for 25 minutes. Time to take a quick break!',
+            'info'
+          );
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [addNotification]);
+
+  const formatTime = (secs: number) => {
+    const mins = Math.floor(secs / 60);
+    const remaining = secs % 60;
+    return `${mins.toString().padStart(2, '0')}:${remaining.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 glass px-4 py-2.5 rounded-full flex items-center gap-3 border border-memora-accent/30 shadow-[0_0_20px_rgba(124,58,237,0.15)] animate-fade-in">
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-memora-accent opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-memora-accent"></span>
+      </span>
+      <span className="text-xs font-semibold text-white tracking-wider">
+        Focus: {formatTime(seconds)}
+      </span>
+    </div>
+  );
+}
+
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,6 +103,9 @@ export default function Layout() {
           </div>
         ))}
       </div>
+
+      {/* Focus Session Timer (Section 9.3) */}
+      {adhdFocusMode && <FocusTimer />}
 
       {/* Sidebar navigation */}
       <aside

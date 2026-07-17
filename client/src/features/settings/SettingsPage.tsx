@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client.js';
-import { Globe, BookOpen, MessageSquare, Github } from 'lucide-react';
+import { useUiStore } from '../../store/uiStore.js';
+import { Globe, BookOpen, MessageSquare, Github, Eye, Sparkles, Sliders } from 'lucide-react';
 
 export default function SettingsPage() {
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'integrations' | 'billing'>('profile');
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'integrations' | 'preferences' | 'billing'>('profile');
   const [integrations, setIntegrations] = useState<any[]>([]);
+
+  const {
+    adhdFocusMode,
+    reducedTransparency,
+    colorBlindMode,
+    toggleAdhdFocusMode,
+    toggleReducedTransparency,
+    toggleColorBlindMode
+  } = useUiStore();
 
   useEffect(() => {
     if (activeSubTab === 'integrations') {
@@ -13,7 +23,6 @@ export default function SettingsPage() {
   }, [activeSubTab]);
 
   const handleConnect = (provider: string) => {
-    // Redirect to backend OAuth route
     window.location.href = `/auth/${provider}`;
   };
 
@@ -51,6 +60,14 @@ export default function SettingsPage() {
           }`}
         >
           Integrations
+        </button>
+        <button
+          onClick={() => setActiveSubTab('preferences')}
+          className={`px-4 py-2 text-left rounded text-sm font-semibold transition-colors ${
+            activeSubTab === 'preferences' ? 'bg-memora-border text-white' : 'text-memora-text-muted hover:text-white'
+          }`}
+        >
+          Preferences
         </button>
         <button
           onClick={() => setActiveSubTab('billing')}
@@ -123,6 +140,56 @@ export default function SettingsPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === 'preferences' && (
+          <div className="glass p-6 rounded-xl flex flex-col gap-6">
+            <h2 className="text-lg font-bold text-white">Interface Preferences</h2>
+            
+            <div className="flex flex-col gap-4">
+              {/* ADHD Focus Mode toggle */}
+              <div className="flex items-center justify-between p-4 bg-memora-bg/50 border border-memora-border rounded-lg">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-white">ADHD Focus Mode</span>
+                  <span className="text-xs text-memora-text-muted">Dims peripheral cards to eliminate visual distractions</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={adhdFocusMode}
+                  onChange={toggleAdhdFocusMode}
+                  className="w-4 h-4 rounded border-memora-border accent-memora-accent focus:ring-0 cursor-pointer"
+                />
+              </div>
+
+              {/* Reduced Transparency Mode toggle */}
+              <div className="flex items-center justify-between p-4 bg-memora-bg/50 border border-memora-border rounded-lg">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-white">Reduce Transparency</span>
+                  <span className="text-xs text-memora-text-muted">Replaces glassmorphic background blurs with solid colors</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={reducedTransparency}
+                  onChange={toggleReducedTransparency}
+                  className="w-4 h-4 rounded border-memora-border accent-memora-accent focus:ring-0 cursor-pointer"
+                />
+              </div>
+
+              {/* Color-Blind Safe Mode toggle */}
+              <div className="flex items-center justify-between p-4 bg-memora-bg/50 border border-memora-border rounded-lg">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-white">Color-Blind Safe Mode</span>
+                  <span className="text-xs text-memora-text-muted">Swaps brand hues with accessible deuteranopia-safe colors</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={colorBlindMode}
+                  onChange={toggleColorBlindMode}
+                  className="w-4 h-4 rounded border-memora-border accent-memora-accent focus:ring-0 cursor-pointer"
+                />
+              </div>
             </div>
           </div>
         )}

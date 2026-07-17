@@ -13,8 +13,12 @@ interface UiState {
   activeTab: string;
   notifications: NotificationItem[];
   adhdFocusMode: boolean;
+  reducedTransparency: boolean;
+  colorBlindMode: boolean;
   toggleSidebar: () => void;
   toggleAdhdFocusMode: () => void;
+  toggleReducedTransparency: () => void;
+  toggleColorBlindMode: () => void;
   setTheme: (theme: 'dark' | 'light') => void;
   setActiveTab: (tab: string) => void;
   addNotification: (title: string, message: string, type?: 'info' | 'success' | 'warning') => void;
@@ -27,9 +31,37 @@ export const useUiStore = create<UiState>((set) => ({
   activeTab: 'search',
   notifications: [],
   adhdFocusMode: false,
+  reducedTransparency: false,
+  colorBlindMode: false,
 
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-  toggleAdhdFocusMode: () => set((state) => ({ adhdFocusMode: !state.adhdFocusMode })),
+  toggleAdhdFocusMode: () => set((state) => {
+    const next = !state.adhdFocusMode;
+    if (next) {
+      document.body.classList.add('adhd-focus-active');
+    } else {
+      document.body.classList.remove('adhd-focus-active');
+    }
+    return { adhdFocusMode: next };
+  }),
+  toggleReducedTransparency: () => set((state) => {
+    const next = !state.reducedTransparency;
+    if (next) {
+      document.body.classList.add('reduced-transparency-active');
+    } else {
+      document.body.classList.remove('reduced-transparency-active');
+    }
+    return { reducedTransparency: next };
+  }),
+  toggleColorBlindMode: () => set((state) => {
+    const next = !state.colorBlindMode;
+    if (next) {
+      document.body.classList.add('color-blind-active');
+    } else {
+      document.body.classList.remove('color-blind-active');
+    }
+    return { colorBlindMode: next };
+  }),
   setTheme: (theme) => set({ theme }),
   setActiveTab: (activeTab) => set({ activeTab }),
 
@@ -50,3 +82,4 @@ export const useUiStore = create<UiState>((set) => ({
       notifications: state.notifications.filter((n) => n.id !== id),
     })),
 }));
+export default useUiStore;
