@@ -1,160 +1,362 @@
-# Memora Production Design System: "Obsidian Memory" Specification
+# Memora Production Design System: "Obsidian Memory"
 
-**Version:** 3.1.0  
+**Version:** 3.2.0  
 **Scope:** Client Dashboard (`client/`), MV3 Browser Extension (`extension/`), and Shared Component Modules.  
-**Philosophy:** A structured visual hierarchy optimized for cognitive recall, readability under extended use, and hardware-accelerated rendering on mobile viewports.
+**Last Updated:** July 2026  
+**Philosophy:** A structured visual hierarchy optimized for cognitive recall, readability under extended use, and hardware-accelerated rendering. Inclusivity, performance, and emotional resonance are non-negotiable.
 
 ---
 
-## 🌌 1. Token Pipeline Architecture
+## 1. Token Pipeline Architecture (Enhanced)
 
-All visual variables flow from a single DTCG-compliant source of truth, compiled automatically during the build phase into Tailwind CSS v4 variables:
+All visual variables flow from a single DTCG-compliant source of truth. Tokens are compiled into Tailwind CSS v4 variables and also generate platform-specific outputs.
 
 ```mermaid
 graph LR
     Tokens[design/tokens.json] -->|Style Dictionary| CSS[client/src/index.css]
-    CSS -->|Tailwind v4 Compiler| Dist[Build Bundles]
-    Tokens -->|Extension Mapper| Extension[extension/dist/popup.css]
+    Tokens -->|Extension Mapper| ExtensionCSS[extension/dist/popup.css]
+    Tokens -->|React Native (future)| Mobile[Design Tokens for Mobile]
+    Tokens -->|Accessibility Variants| A11y[High Contrast / Reduced Motion / Color-Blind Safe]
+```
+
+### Token Categories (New)
+- **Adaptive tokens:** Values that change per breakpoint (`sm`, `md`, `lg`) and performance mode (`performance: "low" | "high"`).
+- **Motion tokens:** Spring parameters, durations, easing curves, and `prefers-reduced-motion` overrides.
+- **Accessibility tokens:** `focus-ring-width`, `focus-ring-color`, `color-scheme` variants for color-blindness, reduced transparency.
+
+All tokens are defined in a single `design/tokens.json` file. Example excerpt:
+
+```json
+{
+  "color": {
+    "bg": {
+      "canvas": { "value": "#050508", "attributes": { "lch": "oklch(12% 0.01 280)" } },
+      "raised": { "value": "#0f0f16", "attributes": { "lch": "oklch(16% 0.02 280)" } },
+      "elevated": { "value": "#181824", "attributes": { "lch": "oklch(20% 0.03 280)" } }
+    },
+    "primary": { "value": "#7c3aed", "attributes": { "lch": "oklch(58% 0.19 291)" } },
+    "secondary": { "value": "#06b6d4", "attributes": { "lch": "oklch(71% 0.13 220)" } }
+  },
+  "motion": {
+    "spring": {
+      "default": { "stiffness": 120, "damping": 18 },
+      "gentle": { "stiffness": 80, "damping": 20 }
+    },
+    "duration": {
+      "fast": "150ms",
+      "normal": "250ms",
+      "slow": "400ms"
+    }
+  }
+}
 ```
 
 ---
 
-## 🧊 2. The Canvas Backdrop (Depth, Radial Gradients & Texture)
+## 2. The Canvas Backdrop (Depth, Radial Gradients & Texture)
 
-Rather than flat, dull background layers, the Memora workspace utilizes a highly textured, dimensional universe style:
+### 2.1 Primary Background
+- **Base Color:** `oklch(12% 0.01 280)` / `#050508` – deep obsidian black.
+- **Cosmic Glows (Three layers, slow-pulsing via CSS animation):**
+    - Top-Right: `#7c3aed` (purple-600) with `blur-[140px]`, `opacity-30`, pulsing between 25% and 35% opacity over 8s.
+    - Center-Left: `#06b6d4` (cyan-500) with `blur-[160px]`, `opacity-25`, pulsing between 20% and 30% opacity over 10s (offset phase).
+    - Bottom-Right: `#050508` base depth (dark sink).
 
-*   **Primary Background Color**: Strict, deep obsidian space black `#050508`.
-*   **Ambient Cosmic Glows**: Embedded 3-layered slow-pulsing radial mesh gradients floating in the background:
-    *   Top-Right: `#7c3aed` (purple-600) with a `blur-[140px]` at `30%` opacity (evoking active memory clusters).
-    *   Center-Left: `#06b6d4` (cyan-500) with a `blur-[160px]` at `25%` opacity (evoking search path pathways).
-    *   Bottom-Right: `#050508` base depth.
-*   **Tactile Dot Grid Mask**: A fine, repeating `4rem_4rem` grid layer masked with a radial gradient:
-    ```css
-    background-image: linear-gradient(to right, rgba(255,255,255,0.01) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(255,255,255,0.01) 1px, transparent 1px);
-    mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 60%, transparent 100%);
-    ```
-
----
-
-## 🧊 3. Translucent Glassmorphic Cards (The Materials)
-
-Workspace panels and overlays are designed as translucent glass plates floating over the cosmic backdrop:
-
-*   **Panel Transparency**:
-    *   Left Panel (Dashboard & Timeline): `rgba(15, 15, 22, 0.75)`
-    *   Right Panel (Proactive Sidebar & Chat): `rgba(10, 10, 15, 0.45)`
-    *   Header bar: `rgba(10, 10, 15, 0.45)`
-*   **Backdrop Blur**: Strict `backdrop-blur-[12px]` or `backdrop-blur-[16px]` applied to all primary panels, allowing the pulsing gradient glows to filter through beautifully.
-*   **Card Outlines**: Ultra-thin `border border-white/5` with a top-border neumorphic highlight (`border-t border-white/8`). Contrasts structural panels without heavy shadows.
-*   **Corner Radii**:
-    *   Primary split panels: `rounded-none` to anchor onto screen bounds cleanly.
-    *   Bento cards, memory-feed items, modals: `rounded-2xl` (12px) for a premium soft organic feel.
-    *   Action buttons, tags, input components: `rounded-lg` (8px).
-
----
-
-## 🎨 4. Rich Color Palettes & HSL Glow Tokens
-
-Avoid generic solid hues. Use curated, vibrant gradient overlays and shadow blooms:
-
-### Color Value Reference Table
-
-| Variable | HEX / OKLCH | Luminance | Chroma | Hue | Contrast vs. Base Canvas |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `color-primary` | `oklch(58% 0.19 291)` / `#7c3aed` | 0.58 | 0.19 | 291 | 5.2:1 (Passes WCAG AA) |
-| `color-secondary` | `oklch(71% 0.13 220)` / `#06b6d4` | 0.71 | 0.13 | 220 | 7.6:1 (Passes WCAG AAA) |
-| `color-bg-base` | `oklch(12% 0.01 280)` / `#050508` | 0.12 | 0.01 | 280 | N/A (Base Canvas) |
-| `color-bg-raised` | `oklch(16% 0.02 280)` / `#0f0f16` | 0.16 | 0.02 | 280 | 1.3:1 (Structural Elevation) |
-| `color-bg-elevated`| `oklch(20% 0.03 280)` / `#181824` | 0.20 | 0.03 | 280 | 1.8:1 (Interactive Elevation)|
-
-### HSL Shadow Blooms
-*   **Purple Bloom**: `box-shadow: 0 0 25px rgba(124, 58, 237, 0.20)`.
-*   **Cyan Bloom**: `box-shadow: 0 0 25px rgba(6, 182, 212, 0.15)`.
-
----
-
-## 💬 5. Dialogue Flow & Bubble Aesthetics
-
-The chat and synthesis interfaces represent the master brain of the workspace, requiring stellar styling:
-
-*   **User Search Prompts**: Styled with a highly vibrant HSL glass gradient:
-    *   Class: `bg-gradient-to-tr from-[#7c3aed]/12 to-[#06b6d4]/8 text-white border border-[#7c3aed]/25 shadow-[0_0_15px_rgba(124,58,237,0.06)]`
-*   **AI Agent Response Bubbles**: Framed in crisp dark translucent plates:
-    *   Class: `bg-[#0f0f16]/90 backdrop-blur-md text-slate-200 border border-white/5 shadow-[0_0_20px_rgba(0,0,0,0.25)]`
-*   **Typing/Thinking State**: Displays a clean glass container matching the agent bubble style, populated with three slow-pulsing dots using staggering animation delays (`animation-delay: 0.2s/0.4s`).
-
----
-
-## ⚡ 6. Micro-Animations & Springs
-
-Every interactive element must feel alive:
-
-*   **Spring Parameters**: Springy entrances using Framer Motion:
-    *   Entrance style: `stiffness: 120`, `damping: 18` to give a premium, organic drift.
-*   **Hover Scaling**: Subtle visual expansions on hover:
-    *   MemoryCard, Bento blocks: `scale-[1.01]` or `scale-[1.02]`.
-    *   Interactive buttons: `active:scale-[0.98]` for responsive physical feedback.
-*   **Transition Speeds**: Standard hover transitions must utilize a clean `transition-all duration-250 ease-out` timing curve.
-
----
-
-## 🌌 7. WebGL 3D Physical Space & Layout Presets
-
-To fully immerse the user in their data, the interface bridges 3D graphics pipelines with standard 2D layout managers:
-
-*   **Three.js Glass Node Material**: Nodes are rendered inside an interactive WebGL point cloud using:
-    ```typescript
-    new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(baseColor),
-      transparent: true,
-      opacity: active ? 0.85 : 0.12,
-      roughness: 0.1,
-      metalness: 0.15,
-      transmission: active ? 0.90 : 0.25, // Refractive glass transparency
-      thickness: active ? 2.0 : 0.3,     // Refracted light thickness
-      clearcoat: active ? 1.0 : 0.0,
-      clearcoatRoughness: 0.1,
-    })
-    ```
-*   **Active Camera Drifts**: Continuously rotates the spatial point cloud using smooth trigonometric drifts to keep the interface visually dynamic:
-    *   $X = \text{distance} \times \sin(\text{angle})$
-    *   $Z = \text{distance} \times \cos(\text{angle})$
-*   **Layout Preset Panel Resizes**: Resizes split panes using the smooth transitions of `react-resizable-panels`:
-    *   **ADHD Focus Mode**: Collapses sidebars and dashboard grids completely, focusing 100% space on the search container and active AI search synthesis box.
-    *   **Explorer Mode**: Standard split panel providing a 58%/42% workspace split (Left graph/Right content).
-    *   **Timeline Mode**: Focuses on the ingested web clips feed.
-
----
-
-## ♿ 8. Accessibility & Cognitive Inclusivity (ADHD Mode)
-
-We implement programmatic accessibility safeguards to support keyboard-only access and reduce cognitive load for neurodivergent users.
-
-### ADHD Focus Override Rules
-When Focus Mode is active (`.adhd-focus-active`), we damp down secondary peripheral containers to eliminate visual clutter:
+### 2.2 Tactile Dot Grid Mask
 ```css
-.adhd-focus-active .layout-sidebar,
-.adhd-focus-active .proactive-panel,
-.adhd-focus-active .bento-metric-card {
-  opacity: 0.12;
-  filter: blur(2px);
-  pointer-events: none;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.adhd-focus-active .search-focus-container {
-  transform: scale(1.02);
-  z-index: 10;
-}
+background-image:
+    linear-gradient(to right, rgba(255,255,255,0.01) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.01) 1px, transparent 1px);
+background-size: 4rem 4rem;
+mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 60%, transparent 100%);
 ```
 
-### Contrast Safety
-We implement automated unit test assertions verifying that contrast levels on dynamic glass overlays never fall below WCAG AA thresholds:
+**Performance fallback:** On devices with `performance: low` (detected via user preference or reduced motion), the dot grid is replaced with a static, pre-rendered SVG background to avoid expensive composite layers.
+
+### 2.3 Context-Aware Backdrop Shifting
+- **ADHD Focus Mode:** Background darkens further (opacity of glow layers drops by 60%). The dot grid mask tightens to `ellipse 80% 80%`, focusing on the center.
+- **Graph/3D Mode:** The cosmic glow layers are subtly desaturated to avoid competing with the vibrant WebGL nodes.
+
+---
+
+## 3. Glassmorphic Cards (The Materials)
+
+### 3.1 Panel Transparency & Blur
+| Panel | Background | Blur | Purpose |
+|-------|------------|------|---------|
+| Left Panel (Dashboard/Timeline) | `rgba(15, 15, 22, 0.75)` | `backdrop-blur-[12px]` | Primary workspace |
+| Right Panel (Proactive/Sidebar) | `rgba(10, 10, 15, 0.45)` | `backdrop-blur-[16px]` | Supplementary context |
+| Header | `rgba(10, 10, 15, 0.45)` | `backdrop-blur-[12px]` | Navigation |
+| Modal / Overlay | `rgba(15, 15, 22, 0.85)` | `backdrop-blur-[20px]` | Focused tasks |
+
+### 3.2 Card Outlines & Corners
+- **Border:** `border border-white/5` with `border-t border-white/8` for subtle structural hierarchy.
+- **Corner Radii:**
+    - Primary panels: `rounded-none` (anchored).
+    - Bento cards, memory items, modals: `rounded-2xl` (12px) with optional **squircle** shape (`clip-path: inset(0 round 12px)`) for a more organic, modern feel.
+    - Buttons, tags, inputs: `rounded-lg` (8px).
+
+### 3.3 Interactive States (New)
+- **Default:** As above.
+- **Hover:** Brightness increases by 5% (`filter: brightness(1.05)`), border color transitions to `border-white/15`, and a subtle glow (`box-shadow: 0 0 12px rgba(124,58,237,0.1)`) appears.
+- **Focus:** A visible focus ring (2px, `color-primary`, offset 2px) for keyboard navigation. All interactive elements must be focusable.
+- **Active:** Slight scale reduction `scale-[0.99]`.
+- **Disabled:** Reduced opacity (0.4), no hover effects, `pointer-events-none`.
+
+### 3.4 Mobile & Touch
+- Minimum touch target size: 48×48px.
+- Cards on mobile have increased padding (`p-4` → `p-6`) and wider hit areas.
+
+---
+
+## 4. Rich Color Palettes (Expanded)
+
+### 4.1 Core Colors
+| Role | HEX / OKLCH | Usage |
+|------|-------------|-------|
+| Primary | `oklch(58% 0.19 291)` / `#7c3aed` | Calls to action, active states, graph nodes |
+| Secondary | `oklch(71% 0.13 220)` / `#06b6d4` | Links, highlights, tool badges |
+| Canvas Base | `oklch(12% 0.01 280)` / `#050508` | Main backdrop |
+| Raised Surface | `oklch(16% 0.02 280)` / `#0f0f16` | Cards, panels |
+| Elevated Surface | `oklch(20% 0.03 280)` / `#181824` | Modals, tooltips |
+
+### 4.2 Status & Semantic Colors (New)
+| Status | HEX / OKLCH | Example |
+|--------|-------------|---------|
+| Success | `oklch(65% 0.18 140)` / `#10b981` | Automation completed, saved |
+| Warning | `oklch(75% 0.15 85)` / `#f59e0b` | Approaching limit, pending |
+| Error | `oklch(55% 0.22 25)` / `#ef4444` | Deletion failure, critical alert |
+| Info | `oklch(60% 0.10 250)` / `#3b82f6` | Neutral updates |
+
+### 4.3 Data Visualization Palette (New)
+For Knowledge Graph (F42), People analytics, Digest charts. All colors tested for color-blindness (deuteranopia/protanopia/tritanopia).
+
+1. `oklch(60% 0.20 30)` — Warm Red
+2. `oklch(65% 0.18 140)` — Emerald
+3. `oklch(70% 0.15 250)` — Sky Blue
+4. `oklch(60% 0.18 320)` — Magenta
+5. `oklch(75% 0.12 85)` — Gold
+6. `oklch(60% 0.10 180)` — Teal
+7. `oklch(55% 0.16 50)` — Orange
+8. `oklch(70% 0.08 270)` — Lavender
+
+### 4.4 Shadow Blooms
+- **Purple Bloom:** `box-shadow: 0 0 25px rgba(124, 58, 237, 0.20)`
+- **Cyan Bloom:** `box-shadow: 0 0 25px rgba(6, 182, 212, 0.15)`
+
+### 4.5 Color-Blind Safe Theme Toggle (New)
+Users can switch to a color-blind safe palette that maintains contrast and vibrancy but shifts hues to distinguish red/green or blue/yellow deficiencies. This is implemented via a CSS custom property swap triggered by a setting. For example, the primary becomes a robust blue and secondary a warm yellow.
+
+### 4.6 Light Mode (Future-Proof)
+Even though dark is default, the token set includes light variants. When a user explicitly selects light mode, the canvas becomes `#F8F9FC`, raised surfaces become white with soft shadows, and text adjusts to dark. This is pre-built but not active by default.
+
+---
+
+## 5. Typography (New Section)
+
+### 5.1 Type Scale
+Uses fluid `clamp()` values to scale from mobile to desktop.
+
+- **Display:** `clamp(3rem, 8vw, 6rem)` — hero headings, major sections.
+- **H1:** `clamp(2rem, 5vw, 3rem)`
+- **H2:** `clamp(1.5rem, 4vw, 2.25rem)`
+- **Body:** `1rem` / line-height `1.6`
+- **Small/Caption:** `0.875rem` / line-height `1.5`
+
+### 5.2 Font Families
+- **Headings:** `Outfit` (variable weight, geometric) — used for all titles and prominent UI.
+- **Body:** `Inter` (variable weight, optimized for readability) — used for paragraphs, captions, metadata.
+- **Monospace:** `JetBrains Mono` — code snippets, commands.
+
+### 5.3 Variable Font Features
+- `Outfit` weight axis used dynamically: `wght` can subtly increase on hover for interactive cards.
+- `Inter` width axis can be used to condense text in dense table views.
+
+### 5.4 Emphasis & Hierarchy
+- **Letter-spacing:** Headings `-0.02em`, buttons `0.05em` uppercase, body `normal`.
+- **Line-height:** Headings `1.2`, body `1.6`.
+
+---
+
+## 6. Dialogue Flow & Bubble Aesthetics (Enhanced)
+
+### 6.1 User Search Prompts
+Class: `bg-gradient-to-tr from-[#7c3aed]/12 to-[#06b6d4]/8 text-white border border-[#7c3aed]/25 shadow-[0_0_15px_rgba(124,58,237,0.06)]`
+
+### 6.2 AI Agent Response Bubbles
+Class: `bg-[#0f0f16]/90 backdrop-blur-md text-slate-200 border border-white/5 shadow-[0_0_20px_rgba(0,0,0,0.25)]`
+
+### 6.3 Citation Chips (New)
+Inline citations are rendered as small, pill-shaped buttons: `bg-[#7c3aed]/10 border border-[#7c3aed]/20 text-xs px-2 py-0.5 rounded-full hover:bg-[#7c3aed]/20 cursor-pointer`. On hover, a tooltip shows the full source title and URL. An external link icon (Lucide `ExternalLink`) follows the chip.
+
+### 6.4 Tool/Agent Action Badges (New)
+When the agent performs a side action (e.g., “searching web”, “scheduling automation”), a non-intrusive badge appears in the chat: `bg-[#06b6d4]/10 border border-[#06b6d4]/20 text-xs text-[#06b6d4] px-2 py-0.5 rounded-full` with a small gear or search icon.
+
+### 6.5 Thinking/Streaming State
+A glass container matching the AI bubble, containing three dots (size 6px, color `#7c3aed`) with staggered opacity animations (`0s`, `0.2s`, `0.4s` delay). The container has `aria-busy="true"` and an ARIA live region announces “Memora is thinking…”.
+
+### 6.6 Empty States (New)
+When no search results or timeline items exist, a centered container with the cosmic glow background and a gentle message: “Your memory cosmos is waiting for you.” Icons (star/planet) animated subtly.
+
+---
+
+## 7. Micro-Animations & Springs (Refined)
+
+### 7.1 Entrance Animation
+- Framer Motion spring: `stiffness: 120`, `damping: 18`. All new components enter with a gentle fade-in and slight Y offset.
+
+### 7.2 Page Transitions (New)
+- Using `AnimatePresence`, page transitions between dashboard tabs are crossfade (opacity 0 → 1, duration 200ms) or a subtle slide (Y 10px → 0). No jarring movements.
+
+### 7.3 Hover & Active
+- Cards: `scale-[1.01]` on hover, `active:scale-[0.99]`.
+- Buttons: `active:scale-[0.98]`.
+- Transition timing: `transition-all duration-250 ease-out`.
+
+### 7.4 Skeleton Screens (New)
+- Instead of spinners, shimmering glass cards are displayed. A CSS animation using `background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)` moving across the card.
+
+### 7.5 Reduced Motion (Mandatory)
+- All motion respects `@media (prefers-reduced-motion: reduce)`. When active:
+    - Animations duration = `0.01ms` (virtually instant).
+    - Springs disabled; enter animations become instant opacity.
+    - Scroll-driven effects removed.
+    - 3D camera movements frozen.
+
+---
+
+## 8. WebGL 3D Physical Space & Layout Presets (Expanded)
+
+### 8.1 Knowledge Graph (Three.js / React Three Fiber)
+- **Material:** `MeshPhysicalMaterial` with `roughness: 0.1, metalness: 0.15, transmission: 0.9` for active nodes; inactive nodes have `transmission: 0.25` and lower opacity.
+- **Camera:** Smooth trigonometric drift (`x = distance * sin(angle)`, `z = distance * cos(angle)`). On user interaction, the camera orbits around a focus point.
+- **Fallback (2D):** If WebGL is unavailable (or performance mode is low), the graph is rendered with **d3-force** in a 2D canvas using the same color palette and interaction (drag/zoom).
+
+### 8.2 Loading State (New)
+- A full‑screen progress indicator with the Memora logo and a percentage loader. The 3D scene only appears after initialization. Avoids the “broken page” impression.
+
+### 8.3 Performance Safeguards
+- **Pause rendering when not visible:** `useFrame` only runs when the graph tab is active (via `IntersectionObserver`).
+- **Mobile optimization:** Reduce polygon count; use `MeshStandardMaterial` (roughness only) instead of physical material for better performance.
+- **Battery-saver mode:** If the user’s device reports low battery (via `navigator.getBattery()`), switch to 2D fallback automatically.
+
+### 8.4 Layout Presets (Extended)
+| Preset | Description | Panel Configuration |
+|--------|-------------|---------------------|
+| **ADHD Focus** | Minimizes all peripherals; full‑screen search bar | 100% search container, sidebars collapsed |
+| **Explorer** | Standard split: Graph/3D on left, detail on right | 58% left / 42% right |
+| **Timeline** | Focus on chronological feed with scrubber | Full‑width timeline, proactive side panel hidden |
+| **Graph (New)** | Immersive 3D graph, controls overlaid | Full screen canvas, minimal chrome |
+| **Board (New)** | Visual masonry grid of memory cards | Full‑width, infinite scroll, filter toolbar |
+| **People (New)** | CRM-style view of contacts and interactions | Split: contact list left, detail right |
+
+Switching between presets is animated with `react-resizable-panels` and smooth transitions.
+
+---
+
+## 9. Accessibility & Cognitive Inclusivity (Enhanced)
+
+### 9.1 Keyboard Navigation
+- Full keyboard accessibility: Tab order follows logical layout. Focus rings visible on all interactive elements.
+- Shortcuts:
+    - `Ctrl+K` or `Cmd+K` : Focus search bar.
+    - `Ctrl+B` : Toggle sidebar.
+    - `Esc` : Close modal / return to default focus.
+- Focus trap in modals and the 3D graph (when modal is open).
+
+### 9.2 Screen Reader Support
+- All non-text content has appropriate ARIA labels.
+- Dynamic content (proactive cards, streaming answers) announces via ARIA live regions (`aria-live="polite"`).
+- 3D graph nodes: when a node is highlighted, a live region announces its title and a brief snippet.
+
+### 9.3 ADHD Focus Mode (Existing, Enhanced)
+- When activated, adds `.adhd-focus-active` to `<body>`.
+- Rules as previously defined, plus:
+    - Background dims further.
+    - All animations are disabled (instant transitions).
+    - A subtle “session timer” appears in the corner, showing time spent in focus; after 25 minutes, a gentle reminder to take a break appears.
+
+### 9.4 Reduce Transparency
+- Users can toggle "Reduce transparency" in Settings, which increases glassmorphic panels' background opacity to 95% (nearly solid) and removes `backdrop-blur`, ensuring clear readability.
+
+### 9.5 Color-Blind Safe Theme
+- A toggle in Settings that swaps the primary color palette with a set optimized for deuteranopia, protanopia, and tritanopia. The tokens already contain the variant values.
+
+### 9.6 Contrast Safety (Automated Testing)
 ```typescript
 test('contrast ratio compliance', () => {
-  const fgColor = '#E4E4ED'; // primary text
-  const bgColor = '#0F0F16'; // raised surface
+  const fgColor = '#E4E4ED';
+  const bgColor = '#0F0F16';
   expect(getContrastRatio(fgColor, bgColor)).toBeGreaterThanOrEqual(4.5);
 });
+```
+
+---
+
+## 10. Sustainability & Performance (New)
+
+- **Image formats:** Use AVIF for static images, WebP for fallback. All images lazy-loaded.
+- **Code splitting:** Dashboard pages are code-split; only the active page loads.
+- **3D budget:** Maximum 20k polygons for the knowledge graph. Unused 3D assets are destroyed on page change.
+- **Carbon-aware hosting:** (if deployed) preference for regions with low grid carbon intensity.
+
+---
+
+## 11. Implementation Notes
+
+- **Tailwind CSS v4** configuration: `@import "tailwindcss"` in `client/src/index.css`.
+- **Framer Motion** for component animations.
+- **React Three Fiber** for 3D (with `drei` helpers).
+- **d3-force** for 2D graph fallback.
+- **Style Dictionary** for token transformation.
+- **Testing:** Vitest for contrast and accessibility rules.
+
+---
+
+## Appendix A: Token Snippet (Example)
+
+```json
+{
+  "color": {
+    "bg": {
+      "canvas": { "value": "#050508" },
+      "raised": { "value": "#0f0f16" },
+      "elevated": { "value": "#181824" }
+    },
+    "primary": { "value": "#7c3aed" },
+    "secondary": { "value": "#06b6d4" },
+    "status": {
+      "success": { "value": "#10b981" },
+      "warning": { "value": "#f59e0b" },
+      "error": { "value": "#ef4444" },
+      "info": { "value": "#3b82f6" }
+    },
+    "dataviz": [
+      { "name": "red", "value": "#e53e3e" },
+      { "name": "emerald", "value": "#38a169" },
+      { "name": "sky", "value": "#3182ce" },
+      { "name": "magenta", "value": "#d53f8c" },
+      { "name": "gold", "value": "#d69e2e" },
+      { "name": "teal", "value": "#319795" },
+      { "name": "orange", "value": "#dd6b20" },
+      { "name": "lavender", "value": "#805ad5" }
+    ]
+  },
+  "motion": {
+    "spring": {
+      "default": { "stiffness": 120, "damping": 18 },
+      "gentle": { "stiffness": 80, "damping": 20 }
+    },
+    "duration": {
+      "fast": "150ms",
+      "normal": "250ms",
+      "slow": "400ms"
+    }
+  },
+  "breakpoints": {
+    "sm": "640px",
+    "md": "768px",
+    "lg": "1024px"
+  }
+}
 ```
