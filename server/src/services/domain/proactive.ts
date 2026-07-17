@@ -1,15 +1,18 @@
 import { Redis } from 'ioredis';
 import { config } from '../../config.js';
 import { QdrantService } from '../ai/qdrant.js';
+import { EmbeddingService } from '../ai/embedding.js';
 import { SearchResult } from '@memora/shared';
 
 export class ProactiveService {
   private redis: Redis;
+  private embeddingService: EmbeddingService;
 
   constructor(
     private qdrantService: QdrantService,
   ) {
     this.redis = new Redis(config.redis.url);
+    this.embeddingService = new EmbeddingService();
   }
 
   public async processContext(
@@ -19,15 +22,12 @@ export class ProactiveService {
     // Generate context queries based on recent text or identifiers
     const query = context.recentText || `Context for ${context.type} ${context.identifier}`;
     
-    // Perform standard search with threshold filtering
-    // (In a real setup, we would generate an embedding for context query first)
-    // For demo/simplicity, we search using a dummy/zero vector or placeholder search
-    // Since we require embedding vector for hybridSearch, let's create a placeholder
-    const placeholderVector = new Array(config.embedding.dimension).fill(0.1);
+    // Generate real query embedding vector
+    const queryVector = await this.embeddingService.embedSingle(query);
     
     const results = await this.qdrantService.hybridSearch({
       userId,
-      vector: placeholderVector,
+      vector: queryVector,
       query,
       limit: 5,
     });

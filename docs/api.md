@@ -228,3 +228,103 @@ All endpoints, unless otherwise specified, return JSON and expect `Content-Type:
 ### 5. Browser Allow-list (F45)
 - **POST** `/api/browser/action` — Send a vetted browser action payload to run on behalf of the user.
 - **GET** `/api/browser/config` — Retrieve extension global configuration parameters.
+
+---
+
+## AI Summarization Endpoints
+
+### 1. Webpage Summarize
+- **Method:** `POST`
+- **Path:** `/api/summarize`
+- **Auth Required:** Yes
+- **Request Body:**
+  ```json
+  {
+    "url": "https://example.com/article",
+    "title": "Scaling Qdrant for Real-Time Memory Layers",
+    "content": "Full raw page content here..."
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "summary": {
+      "tldr": "A 1-2 sentence TL;DR of the webpage.",
+      "keyPoints": [
+        "Key takeaway point 1",
+        "Key takeaway point 2",
+        "Key takeaway point 3"
+      ],
+      "tags": ["qdrant", "database", "scaling"]
+    },
+    "memoryId": "uuid-v4-point-id"
+  }
+  ```
+
+---
+
+## Highlights Endpoints
+
+### 1. Create Highlight
+- **Method:** `POST`
+- **Path:** `/api/highlights`
+- **Auth Required:** Yes
+- **Request Body:**
+  ```json
+  {
+    "url": "https://example.com/article",
+    "text": "This is the exact sentence highlighted on the page.",
+    "note": "Optional comment added by the user",
+    "color": "yellow",
+    "memoryId": "optional-uuid"
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "id": "cuid-highlight-id",
+    "userId": "cuid-user-id",
+    "url": "https://example.com/article",
+    "text": "This is the exact sentence highlighted on the page.",
+    "note": "Optional comment added by the user",
+    "color": "yellow",
+    "memoryId": "optional-uuid",
+    "createdAt": "2026-07-17T12:00:00Z",
+    "updatedAt": "2026-07-17T12:00:00Z"
+  }
+  ```
+
+### 2. Get Highlights
+- **Method:** `GET`
+- **Path:** `/api/highlights`
+- **Auth Required:** Yes
+- **Query Parameters:** `url` (url-encoded webpage URL)
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "id": "cuid-highlight-id",
+      "userId": "cuid-user-id",
+      "url": "https://example.com/article",
+      "text": "This is the exact sentence highlighted on the page.",
+      "note": "Optional comment added by the user",
+      "color": "yellow",
+      "memoryId": "optional-uuid",
+      "createdAt": "2026-07-17T12:00:00Z",
+      "updatedAt": "2026-07-17T12:00:00Z"
+    }
+  ]
+  ```
+
+### 3. Delete Highlight
+- **Method:** `DELETE`
+- **Path:** `/api/highlights/:id`
+- **Auth Required:** Yes
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true
+  }
+  ```
+

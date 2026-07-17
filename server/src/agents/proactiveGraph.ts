@@ -1,8 +1,13 @@
 import { SearchResult } from '@memora/shared';
 import { QdrantService } from '../services/ai/qdrant.js';
+import { EmbeddingService } from '../services/ai/embedding.js';
 
 export class ProactiveGraph {
-  constructor(private qdrantService: QdrantService) {}
+  private embeddingService: EmbeddingService;
+
+  constructor(private qdrantService: QdrantService) {
+    this.embeddingService = new EmbeddingService();
+  }
 
   public async run(input: { userId: string; context: any }): Promise<SearchResult[]> {
     const states = ['detect_context', 'search_memories', 'rank_relevance', 'deliver'];
@@ -15,10 +20,10 @@ export class ProactiveGraph {
           contextQuery = input.context.recentText || `Channel activity on ${input.context.channelId}`;
           break;
         case 'search_memories':
-          const dummyVector = new Array(384).fill(0.1);
+          const queryVector = await this.embeddingService.embedSingle(contextQuery);
           results = await this.qdrantService.hybridSearch({
             userId: input.userId,
-            vector: dummyVector,
+            vector: queryVector,
             query: contextQuery,
             limit: 5,
           });
