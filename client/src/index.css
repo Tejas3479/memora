@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --color-memora-bg: #0f0f14;
+  --color-memora-surface: #171721;
+  --color-memora-border: #2c2c3d;
+  --color-memora-accent: #7c3aed;
+  --color-memora-accent-hover: #6d28d9;
+  --color-memora-text: #e4e4ed;
+  --color-memora-text-muted: #8e8ea8;
+  --color-memora-accent-glow: rgba(124, 58, 237, 0.15);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-memora-bg);
+    color: var(--color-memora-text);
+    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  }
+}
+
+/* Glassmorphism utility helper card styling */
+.glass {
+  background: rgba(23, 23, 33, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(44, 44, 61, 0.6);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass:hover {
+  background: rgba(23, 23, 33, 0.8);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+/* Custom micro-animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

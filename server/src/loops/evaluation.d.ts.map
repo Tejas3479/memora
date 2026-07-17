@@ -1,0 +1,1 @@
+{"version":3,"file":"evaluation.d.ts","sourceRoot":"","sources":["evaluation.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,eAAe,EAAE,gBAAgB,EAAE,MAAM,gBAAgB,CAAC;AAGnE,qBAAa,cAAc;IACZ,OAAO,CAAC,KAAK,EAAE,eAAe,GAAG,OAAO,CAAC,gBAAgB,CAAC;IAoChE,cAAc,CAAC,SAAS,EAAE,GAAG,EAAE,GAAG;QAAE,SAAS,EAAE,MAAM,CAAC;QAAC,gBAAgB,EAAE,MAAM,CAAA;KAAE;CAazF;AACD,eAAe,cAAc,CAAC"}

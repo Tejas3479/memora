@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  passwordHash    String
+  name            String
+  googleId        String?          @unique
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  plan            Plan             @default(FREE)
+  settings        Json             @default("{}")
+  teams           TeamMember[]
+  subscriptions   Subscription[]
+  integrations    Integration[]
+  feedbacks       Feedback[]
+  comments        Comment[]
+  folders         Folder[]
+  automationRules AutomationRule[]
+  people          Person[]
+  loopExecutions  LoopExecution[]
+
+  @@index([email])
+}
+
+model Team {
+  id        String       @id @default(cuid())
+  name      String
+  createdAt DateTime     @default(now())
+  members   TeamMember[]
+}
+
+model TeamMember {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  role   String @default("member") // "owner", "admin", "member"
+
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@index([teamId])
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  plan                 Plan      @default(FREE)
+  status               String    @default("incomplete") // "active", "past_due", "canceled"
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([stripeCustomerId])
+}
+
+model Integration {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String    // "slack", "notion", "google", "github"
+  accessToken  String?   // encrypted
+  refreshToken String?   // encrypted
+  scope        String?
+  expiresAt    DateTime?
+  metadata     Json      @default("{}")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([provider])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memoryId  String   // Point ID in Qdrant
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([memoryId])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memoryId  String
+  content   String
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([memoryId])
+  @@index([parentId])
+}
+
+model Folder {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  parentId    String?
+  parent      Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[] @relation("FolderHierarchy")
+  color       String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([parentId])
+}
+
+model AutomationRule {
+  id             String                @id @default(cuid())
+  userId         String
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  trigger        String                // "ON_INGEST", "ON_SEARCH", etc.
+  conditions     Json                  // Conditions map
+  actions        Json                  // List of actions
+  actionConfig   Json                  // Actions configurations
+  enabled        Boolean               @default(true)
+  executionCount Int                   @default(0)
+  lastExecutedAt DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  executions     AutomationExecution[]
+
+  @@index([userId])
+}
+
+model AutomationExecution {
+  id         String         @id @default(cuid())
+  ruleId     String
+  rule       AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  memoryId   String?
+  status     String         // "success", "failure", "skipped"
+  result     Json?
+  error      String?
+  executedAt DateTime       @default(now())
+
+  @@index([ruleId])
+  @@index([memoryId])
+}
+
+model Person {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  email       String?
+  avatarUrl   String?
+  company     String?
+  role        String?
+  notes       String?
+  firstSeen   DateTime         @default(now())
+  lastSeen    DateTime         @default(now())
+  memoryCount Int              @default(0)
+  metadata    Json             @default("{}")
+  mentions    PersonMention[]
+
+  @@index([userId])
+  @@index([name])
+}
+
+model PersonMention {
+  id        String   @id @default(cuid())
+  personId  String
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  memoryId  String
+  context   String?
+  timestamp DateTime @default(now())
+
+  @@index([personId])
+  @@index([memoryId])
+}
+
+model LoopExecution {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loopType    String    // "SELF_REFLECTION", "CONSOLIDATION", etc.
+  status      String    // "PENDING", "RUNNING", "COMPLETED", "FAILED"
+  input       Json
+  output      Json?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  error       String?
+
+  @@index([userId])
+  @@index([loopType])
+}
+
+enum Plan {
+  FREE
+  PRO
+  TEAM
+}

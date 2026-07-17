@@ -1,0 +1,25 @@
+{
+  "name": "@memora/worker",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "bullmq": "^5.40.0",
+    "ioredis": "^5.6.0",
+    "@prisma/client": "^6.9.0",
+    "@qdrant/js-client-rest": "^1.13.0",
+    "@google/generative-ai": "^0.24.0",
+    "@memora/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  }
+}
