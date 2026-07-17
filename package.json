@@ -3,6 +3,13 @@
   "private": true,
   "version": "2.0.0",
   "description": "Personal real-time memory layer",
+  "workspaces": [
+    "shared",
+    "server",
+    "worker",
+    "client",
+    "extension"
+  ],
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -10,13 +17,18 @@
     "lint": "turbo run lint",
     "migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed.ts",
+    "tokens:build": "turbo run tokens:build",
     "clean": "turbo run clean"
   },
   "devDependencies": {
     "turbo": "^2.5.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",
-    "prettier": "^3.5.0"
+    "prettier": "^3.5.0",
+    "eslint": "^9.20.0",
+    "style-dictionary": "^4.2.0",
+    "vitest": "^3.0.5",
+    "pnpm": "^9.15.0"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {

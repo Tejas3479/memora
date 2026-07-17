@@ -142,6 +142,29 @@ memora/
 
 ---
 
+## Contribution Guide
+
+We welcome contributions to Memora! Please follow these guidelines:
+
+### Monorepo Workflow
+- This project uses a `pnpm` monorepo layout managed by Turborepo.
+- Run `pnpm install` in the root to install all package dependencies.
+- Run `pnpm dev` to start all packages concurrently under Turborepo.
+- Run `pnpm build` to compile all packages.
+
+### Code Organization
+- Write reusable types, constant configurations, and schemas in the `shared` workspace.
+- Write API endpoints, database interactions (Prisma), and middlewares in the `server` workspace.
+- Write background jobs, processors, and loops in the `worker` workspace.
+- Write browser-specific UI/scripts in the `extension` workspace.
+- Write the main dashboard application code in the `client` workspace.
+
+### Quality Standards
+- TypeScript is used strictly across all workspaces. Ensure type-safety.
+- Prettier is configured for style consistency. Make sure to run prettier formatting before submitting changes.
+
+---
+
 ## License
 
 MIT — see [LICENSE](./LICENSE) for details.
