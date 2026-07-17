@@ -21,10 +21,10 @@ export default function SearchPage() {
 
       {isSearching && (
         <div className="flex flex-col gap-4">
-          <div className="h-32 bg-memora-surface rounded-xl animate-pulse"></div>
+          <div className="h-32 shimmer rounded-2xl border border-white/5"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="h-40 bg-memora-surface rounded-xl animate-pulse"></div>
-            <div className="h-40 bg-memora-surface rounded-xl animate-pulse"></div>
+            <div className="h-40 shimmer rounded-2xl border border-white/5"></div>
+            <div className="h-40 shimmer rounded-2xl border border-white/5"></div>
           </div>
         </div>
       )}

@@ -26,24 +26,24 @@ export default function TimelinePage() {
   ];
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto animate-fade-in">
-      <div className="flex justify-between items-center">
+    <div className="flex flex-col gap-6 max-w-4xl mx-auto animate-fade-in font-sans">
+      <div className="flex justify-between items-center select-none">
         <div>
-          <h1 className="text-2xl font-bold text-white font-sans">Memory Timeline</h1>
+          <h1 className="text-2xl font-bold text-white tracking-wide">Memory Timeline</h1>
           <p className="text-sm text-memora-text-muted">Chronological history of all indexed captures.</p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-memora-border pb-px overflow-x-auto">
+      {/* Floating Capsule Tags (Section 3.2) */}
+      <div className="flex gap-2 pb-2 overflow-x-auto select-none no-scrollbar">
         {sources.map((src) => (
           <button
             key={src.value}
             onClick={() => setSourceFilter(src.value)}
-            className={`px-4 py-2 border-b-2 text-sm font-semibold whitespace-nowrap -mb-px transition-colors ${
+            className={`px-4 py-1.5 rounded-full border text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer active:scale-95 ${
               sourceFilter === src.value
-                ? 'border-memora-accent text-memora-accent'
-                : 'border-transparent text-memora-text-muted hover:text-white'
+                ? 'bg-memora-accent border-memora-accent text-white shadow-lg shadow-memora-accent-glow'
+                : 'border-memora-border bg-memora-surface text-memora-text-muted hover:text-white hover:border-white/10'
             }`}
           >
             {src.label}
@@ -59,8 +59,8 @@ export default function TimelinePage() {
 
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="h-40 bg-memora-surface rounded-xl animate-pulse"></div>
-          <div className="h-40 bg-memora-surface rounded-xl animate-pulse"></div>
+          <div className="h-40 shimmer rounded-2xl border border-white/5"></div>
+          <div className="h-40 shimmer rounded-2xl border border-white/5"></div>
         </div>
       )}
 

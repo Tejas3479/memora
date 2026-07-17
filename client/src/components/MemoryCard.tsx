@@ -27,7 +27,7 @@ export default function MemoryCard({ memory }: Props) {
   };
 
   return (
-    <div className="glass p-6 rounded-xl hover:border-memora-accent hover:shadow-lg transition-all duration-300 flex flex-col gap-3 group">
+    <div className="glass p-6 rounded-2xl border border-white/5 border-t border-white/12 hover:scale-[1.01] hover:border-white/15 active:scale-[0.99] transition-all duration-250 ease-out flex flex-col gap-3 group">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded bg-memora-bg group-hover:scale-110 transition-transform">
