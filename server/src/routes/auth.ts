@@ -5,13 +5,15 @@ import { prisma } from '../prisma.js';
 import { config } from '../config.js';
 import { ValidationError, UnauthorizedError } from '../lib/errors.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { loginRequestSchema, registerRequestSchema } from '@memora/shared';
 
 export default async function authRoutes(fastify: FastifyInstance) {
   fastify.post('/auth/register', async (request, reply) => {
-    const { email, password, name } = request.body as any;
-    if (!email || !password || !name) {
-      throw new ValidationError('Email, password, and name are required');
+    const result = registerRequestSchema.safeParse(request.body);
+    if (!result.success) {
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
     }
+    const { email, password, name } = result.data;
 
     const exists = await prisma.user.findUnique({ where: { email } });
     if (exists) {
@@ -60,10 +62,11 @@ export default async function authRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post('/auth/login', async (request, reply) => {
-    const { email, password } = request.body as any;
-    if (!email || !password) {
-      throw new ValidationError('Email and password are required');
+    const result = loginRequestSchema.safeParse(request.body);
+    if (!result.success) {
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
     }
+    const { email, password } = result.data;
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {

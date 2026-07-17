@@ -7,6 +7,7 @@ import { QdrantService, QdrantPoint } from '../services/ai/qdrant.js';
 import { AutomationService } from '../services/domain/automation.js';
 import { broadcastToUser } from '../websocket.js';
 import crypto from 'crypto';
+import { ingestBodySchema } from '@memora/shared';
 
 const chunker = new TextChunker();
 const embeddingService = new EmbeddingService();
@@ -15,11 +16,11 @@ const qdrantService = new QdrantService();
 export default async function ingestRoutes(fastify: FastifyInstance) {
   fastify.post('/api/ingest', { preHandler: [authMiddleware, planLimitMiddleware] }, async (request, reply) => {
     const userId = request.user!.userId;
-    const { content, url, source, title, timestamp, metadata = {} } = request.body as any;
-
-    if (!content || !url || !source || !title || !timestamp) {
-      return reply.status(400).send({ error: 'Missing required parameters' });
+    const result = ingestBodySchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.status(400).send({ error: result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') });
     }
+    const { content, url, source, title, timestamp, metadata = {} } = result.data;
 
     const docTimestamp = Math.floor(new Date(timestamp).getTime() / 1000);
     const memoryId = crypto.randomUUID();

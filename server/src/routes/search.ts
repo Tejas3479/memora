@@ -4,6 +4,7 @@ import { EmbeddingService } from '../services/ai/embedding.js';
 import { QdrantService } from '../services/ai/qdrant.js';
 import { SynthesisService } from '../services/ai/synthesis.js';
 import { AgenticSearchGraph } from '../agents/agenticSearchGraph.js';
+import { searchBodySchema } from '@memora/shared';
 
 const embedding = new EmbeddingService();
 const qdrant = new QdrantService();
@@ -12,11 +13,11 @@ const synthesis = new SynthesisService();
 export default async function searchRoutes(fastify: FastifyInstance) {
   fastify.post('/api/search', { preHandler: authMiddleware }, async (request) => {
     const userId = request.user!.userId;
-    const { query, filters, limit = 10, offset = 0 } = request.body as any;
-
-    if (!query) {
-      throw new Error('Query text is required');
+    const result = searchBodySchema.safeParse(request.body);
+    if (!result.success) {
+      throw new Error(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
     }
+    const { query, filters, limit, offset } = result.data;
 
     // Use agentic search graph if it involves complex queries
     if (query.toLowerCase().includes('and') || query.toLowerCase().includes('or')) {

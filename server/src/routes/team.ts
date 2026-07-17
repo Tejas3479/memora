@@ -2,11 +2,16 @@ import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
 import { teamAuthMiddleware, requireTeamRole } from '../middleware/teamAuth.js';
 import { prisma } from '../prisma.js';
+import { teamCreateSchema, teamInviteSchema } from '@memora/shared';
 
 export default async function teamRoutes(fastify: FastifyInstance) {
   fastify.post('/api/teams', { preHandler: authMiddleware }, async (request) => {
     const userId = request.user!.userId;
-    const { name } = request.body as any;
+    const result = teamCreateSchema.safeParse(request.body);
+    if (!result.success) {
+      throw new Error(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+    }
+    const { name } = result.data;
 
     const team = await prisma.team.create({
       data: { name },
@@ -47,7 +52,11 @@ export default async function teamRoutes(fastify: FastifyInstance) {
 
   fastify.post('/api/teams/:teamId/invite', { preHandler: [authMiddleware, requireTeamRole(['owner', 'admin'])] }, async (request, reply) => {
     const { teamId } = request.params as any;
-    const { email, role = 'member' } = request.body as any;
+    const result = teamInviteSchema.safeParse(request.body);
+    if (!result.success) {
+      throw new Error(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+    }
+    const { email, role = 'member' } = result.data;
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
