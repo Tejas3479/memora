@@ -1,12 +1,17 @@
 import { SearchResponse, SearchResult } from '@memora/shared';
 import { QdrantService } from '../services/ai/qdrant.js';
+import { EmbeddingService } from '../services/ai/embedding.js';
 import { SynthesisService } from '../services/ai/synthesis.js';
 
 export class AgenticSearchGraph {
+  private embeddingService: EmbeddingService;
+
   constructor(
     private qdrantService: QdrantService,
     private synthesisService: SynthesisService,
-  ) {}
+  ) {
+    this.embeddingService = new EmbeddingService();
+  }
 
   public async run(input: { userId: string; query: string; filters?: any }): Promise<SearchResponse> {
     const states = ['parse_query', 'plan_search', 'execute_searches', 'merge_results', 'synthesize'];
@@ -27,11 +32,11 @@ export class AgenticSearchGraph {
           break;
         case 'execute_searches':
           // Execute queries sequentially
-          const dummyVector = new Array(384).fill(0.1);
           for (const q of plan.queries) {
+            const queryVector = await this.embeddingService.embedSingle(q);
             const res = await this.qdrantService.hybridSearch({
               userId: input.userId,
-              vector: dummyVector,
+              vector: queryVector,
               query: q,
               filters: input.filters,
               limit: 5,

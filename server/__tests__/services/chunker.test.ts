@@ -4,7 +4,7 @@ import { TextChunker } from '../../src/services/ai/chunker.js';
 describe('TextChunker', () => {
   it('should split long text into overlap chunks correctly', () => {
     const chunker = new TextChunker({ chunkSize: 50, chunkOverlap: 10 });
-    const text = 'This is a long piece of text that should be split into smaller blocks with overlap.';
+    const text = 'This is a long piece of text. It should be split into smaller blocks with overlap.';
     const results = chunker.chunk(text, { source: 'test' });
     
     expect(results.length).toBeGreaterThan(1);

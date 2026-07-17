@@ -30,6 +30,8 @@ import foldersRoutes from './routes/folders.js';
 import teamRoutes from './routes/team.js';
 import browserRoutes from './routes/browser.js';
 import sidebarRoutes from './routes/sidebar.js';
+import summarizeRoutes from './routes/summarize.js';
+import highlightsRoutes from './routes/highlights.js';
 
 const app = Fastify({
   logger: process.env.NODE_ENV === 'development' ? {
@@ -88,6 +90,8 @@ await app.register(foldersRoutes);
 await app.register(teamRoutes);
 await app.register(browserRoutes);
 await app.register(sidebarRoutes);
+await app.register(summarizeRoutes);
+await app.register(highlightsRoutes);
 
 // Bootstrap Lifecycle
 const start = async () => {

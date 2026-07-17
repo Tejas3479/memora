@@ -24,9 +24,9 @@ export default async function automationsRoutes(fastify: FastifyInstance) {
         name,
         description,
         trigger,
-        conditions: conditions || {},
-        actions: actions || [],
-        actionConfig: actionConfig || {},
+        conditions: (conditions || {}) as any,
+        actions: (actions || []) as any,
+        actionConfig: (actionConfig || {}) as any,
       },
     });
   });
@@ -49,9 +49,9 @@ export default async function automationsRoutes(fastify: FastifyInstance) {
         name: body.name ?? exists.name,
         description: body.description ?? exists.description,
         trigger: body.trigger ?? exists.trigger,
-        conditions: body.conditions ?? exists.conditions,
-        actions: body.actions ?? exists.actions,
-        actionConfig: body.actionConfig ?? exists.actionConfig,
+        conditions: (body.conditions ?? exists.conditions) as any,
+        actions: (body.actions ?? exists.actions) as any,
+        actionConfig: (body.actionConfig ?? exists.actionConfig) as any,
         enabled: body.enabled ?? exists.enabled,
       },
     });

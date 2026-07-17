@@ -12,6 +12,12 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 
   chrome.contextMenus.create({
+    id: 'save-highlight',
+    title: 'Save highlight to Memora',
+    contexts: ['selection'],
+  });
+
+  chrome.contextMenus.create({
     id: 'open-sidebar',
     title: 'Open Memora sidebar',
     contexts: ['page'],
@@ -39,6 +45,22 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             source: 'web',
           };
           await saveMemory(payload);
+        }
+      }
+    );
+  } else if (info.menuItemId === 'save-highlight') {
+    chrome.tabs.sendMessage(
+      tab.id,
+      { type: MessageType.CAPTURE_SELECTION },
+      async (response: any) => {
+        if (response && response.selection) {
+          await saveHighlight({
+            url: response.url,
+            text: response.selection,
+            color: 'yellow',
+          });
+          // Notify side panels that highlights updated
+          chrome.runtime.sendMessage({ type: 'HIGHLIGHT_ADDED', payload: { url: response.url } });
         }
       }
     );
@@ -88,6 +110,14 @@ async function handleMessage(message: MessagePayload, sender: chrome.runtime.Mes
       await chrome.storage.local.set({ autoCaptureEnabled: next });
       return { autoCaptureEnabled: next };
     }
+    case MessageType.SUMMARIZE_PAGE:
+      return summarizePage(message.payload);
+    case MessageType.SAVE_HIGHLIGHT:
+      return saveHighlight(message.payload);
+    case MessageType.GET_HIGHLIGHTS:
+      return getHighlights(message.payload);
+    case MessageType.DELETE_HIGHLIGHT:
+      return deleteHighlight(message.payload);
   }
 }
 
@@ -155,4 +185,88 @@ async function updateBadge() {
   const text = len > 0 ? String(len) : '';
   chrome.action.setBadgeText({ text });
   chrome.action.setBadgeBackgroundColor({ color: '#7c3aed' });
+}
+
+async function summarizePage(payload: any) {
+  const credentials = await chrome.storage.local.get(['jwt_token']);
+  const token = credentials.jwt_token;
+
+  if (!token) throw new Error('Missing authentication token. Please log in first.');
+
+  const response = await fetch(`${API_URL}/api/summarize`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Summary API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function saveHighlight(payload: any) {
+  const credentials = await chrome.storage.local.get(['jwt_token']);
+  const token = credentials.jwt_token;
+
+  if (!token) throw new Error('Missing authentication token.');
+
+  const response = await fetch(`${API_URL}/api/highlights`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Highlight save error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function getHighlights(payload: { url: string }) {
+  const credentials = await chrome.storage.local.get(['jwt_token']);
+  const token = credentials.jwt_token;
+
+  if (!token) return [];
+
+  const response = await fetch(`${API_URL}/api/highlights?url=${encodeURIComponent(payload.url)}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Highlight fetch error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function deleteHighlight(payload: { id: string }) {
+  const credentials = await chrome.storage.local.get(['jwt_token']);
+  const token = credentials.jwt_token;
+
+  if (!token) throw new Error('Missing authentication token.');
+
+  const response = await fetch(`${API_URL}/api/highlights/${payload.id}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Highlight delete error: ${response.statusText}`);
+  }
+
+  return response.json();
 }

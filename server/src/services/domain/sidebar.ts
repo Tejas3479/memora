@@ -1,10 +1,15 @@
 import { QdrantService } from '../ai/qdrant.js';
+import { EmbeddingService } from '../ai/embedding.js';
 import { SearchResult } from '@memora/shared';
 
 export class SidebarService {
+  private embeddingService: EmbeddingService;
+
   constructor(
     private qdrantService: QdrantService,
-  ) {}
+  ) {
+    this.embeddingService = new EmbeddingService();
+  }
 
   public async getContextualMemories(
     userId: string,
@@ -16,12 +21,12 @@ export class SidebarService {
     // Search Qdrant using page content or URL keywords
     const query = pageContent ? pageContent.slice(0, 200) : currentUrl;
     
-    // Perform standard search with threshold filtering (placeholder vector)
-    const placeholderVector = new Array(384).fill(0.1);
+    // Generate real query embedding vector
+    const queryVector = await this.embeddingService.embedSingle(query);
     
     const results = await this.qdrantService.hybridSearch({
       userId,
-      vector: placeholderVector,
+      vector: queryVector,
       query,
       limit: 5,
     });

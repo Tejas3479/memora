@@ -48,6 +48,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else {
       sendResponse({ error: 'No selection found on active tab' });
     }
+  } else if (message.type === 'GET_FULL_CONTENT') {
+    const details = extractPageDetails();
+    sendResponse(details);
   }
   return true;
 });
