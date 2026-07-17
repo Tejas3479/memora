@@ -2,70 +2,104 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
     <style>
       body {
         width: 320px;
-        background-color: #0f0f14;
+        background-color: #050508;
         color: #e4e4ed;
-        font-family: system-ui, sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         margin: 0;
-        padding: 16px;
+        padding: 20px;
+        box-sizing: border-box;
       }
       .header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: 1px solid #2a2a3a;
-        padding-bottom: 12px;
-        margin-bottom: 16px;
+        border-bottom: 1px solid rgba(44, 44, 61, 0.5);
+        padding-bottom: 14px;
+        margin-bottom: 18px;
       }
       .logo {
+        font-family: 'Outfit', sans-serif;
         font-weight: 700;
         color: #7c3aed;
-        font-size: 18px;
+        font-size: 20px;
+        letter-spacing: -0.02em;
       }
       .badge {
-        font-size: 11px;
-        background-color: #2a2a3a;
-        padding: 2px 8px;
+        font-size: 10px;
+        font-weight: 600;
+        background-color: rgba(44, 44, 61, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 3px 10px;
         border-radius: 12px;
+        color: #8e8ea8;
       }
       .btn {
         background-color: #7c3aed;
         color: white;
-        border: none;
-        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 11px;
         width: 100%;
-        border-radius: 6px;
+        border-radius: 8px;
         font-weight: 600;
+        font-size: 13px;
         cursor: pointer;
         margin-bottom: 12px;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 4px 15px rgba(124, 58, 237, 0.15);
       }
       .btn:hover {
         background-color: #6d28d9;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(124, 58, 237, 0.25);
+      }
+      .btn:active {
+        transform: scale(0.98);
       }
       .btn-secondary {
-        background-color: #2a2a3a;
+        background-color: rgba(15, 15, 22, 0.85);
         color: #e4e4ed;
+        border: 1px solid rgba(44, 44, 61, 0.5);
+        box-shadow: none;
       }
       .btn-secondary:hover {
-        background-color: #3b3b4f;
+        background-color: rgba(24, 24, 36, 0.9);
+        border-color: rgba(255, 255, 255, 0.12);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
       }
       .settings-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-top: 16px;
-        font-size: 14px;
+        margin-top: 18px;
+        font-size: 13px;
+        color: #8e8ea8;
+        font-weight: 500;
+      }
+      .settings-row input[type="checkbox"] {
+        accent-color: #7c3aed;
+        cursor: pointer;
       }
       .footer {
         text-align: center;
-        margin-top: 20px;
-        font-size: 12px;
+        margin-top: 24px;
+        font-size: 11px;
+        border-top: 1px solid rgba(44, 44, 61, 0.5);
+        padding-top: 14px;
       }
       .footer a {
         color: #7c3aed;
         text-decoration: none;
+        font-weight: 600;
+        transition: color 0.2s;
+      }
+      .footer a:hover {
+        color: #6d28d9;
       }
     </style>
   </head>
