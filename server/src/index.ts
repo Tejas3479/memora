@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
+import multipart from '@fastify/multipart';
 import { Redis } from 'ioredis';
 import { config } from './config.js';
 import { errorHandler } from './lib/errors.js';
@@ -17,7 +18,8 @@ import authRoutes from './routes/auth.js';
 import ingestRoutes from './routes/ingest.js';
 import searchRoutes from './routes/search.js';
 import timelineRoutes from './routes/timeline.js';
-import tabsRoutes from './routes/tabs.js';
+import tabRoutes from './routes/tabs.js';
+import transcribeRoutes from './routes/transcribe.js';
 import settingsRoutes from './routes/settings.js';
 import billingRoutes from './routes/billing.js';
 import integrationsRoutes from './routes/integrations.js';
@@ -51,6 +53,7 @@ await app.register(cors, {
 });
 
 await app.register(cookie);
+await app.register(multipart);
 
 await app.register(rateLimit, {
   global: true,
@@ -77,12 +80,13 @@ await app.register(authRoutes);
 await app.register(ingestRoutes);
 await app.register(searchRoutes);
 await app.register(timelineRoutes);
-await app.register(tabsRoutes);
+await app.register(tabRoutes);
 await app.register(settingsRoutes);
 await app.register(billingRoutes);
 await app.register(integrationsRoutes);
 await app.register(proactiveRoutes);
 await app.register(feedbackRoutes);
+await app.register(transcribeRoutes);
 await app.register(exportRoutes);
 await app.register(accountRoutes);
 await app.register(commentsRoutes);

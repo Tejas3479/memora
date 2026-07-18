@@ -8,6 +8,20 @@ import { AutomationService } from '../services/domain/automation.js';
 import { broadcastToUser } from '../websocket.js';
 import crypto from 'crypto';
 import { ingestBodySchema } from '@memora/shared';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+// @ts-ignore
+import pdf from 'pdf-parse/lib/pdf-parse.js';
+// @ts-ignore
+import mammoth from 'mammoth';
+import { createWorker } from 'tesseract.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 const chunker = new TextChunker();
 const embeddingService = new EmbeddingService();
@@ -83,13 +97,151 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
     };
   });
 
+  fastify.get('/uploads/:filename', async (request, reply) => {
+    const { filename } = request.params as any;
+    const filePath = path.join(UPLOADS_DIR, filename);
+    if (!fs.existsSync(filePath)) {
+      return reply.status(404).send({ error: 'File not found' });
+    }
+    const stream = fs.createReadStream(filePath);
+    return reply.send(stream);
+  });
+
   fastify.post('/api/upload', { preHandler: [authMiddleware, planLimitMiddleware] }, async (request, reply) => {
-    // Multipart doc parser placeholder
+    const userId = request.user!.userId;
+    const data = await request.file();
+    if (!data) {
+      return reply.status(400).send({ error: 'No file uploaded' });
+    }
+
+    const buffer = await data.toBuffer();
+    const memoryId = crypto.randomUUID();
+    const fileName = `${memoryId}-${data.filename}`;
+    const filePath = path.join(UPLOADS_DIR, fileName);
+
+    // Save locally
+    await fs.promises.writeFile(filePath, buffer);
+    const fileUrl = `http://localhost:4000/uploads/${fileName}`;
+
+    let text = '';
+    let source = 'document';
+    let isImage = false;
+
+    try {
+      if (data.mimetype === 'application/pdf') {
+        const parsed = await pdf(buffer);
+        text = parsed.text || '';
+        source = 'document';
+      } else if (data.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        const parsed = await mammoth.extractRawText({ buffer });
+        text = parsed.value || '';
+        source = 'document';
+      } else if (data.mimetype.startsWith('image/')) {
+        isImage = true;
+        source = 'image';
+        
+        // Run OCR fallback
+        try {
+          const worker = await createWorker('eng');
+          const ocrRet = await worker.recognize(buffer);
+          text = ocrRet.data.text || '';
+          await worker.terminate();
+        } catch (ocrErr) {
+          console.warn('[UploadRoute] OCR processing failed:', ocrErr);
+          text = `OCR failed for image: ${data.filename}`;
+        }
+      } else {
+        return reply.status(400).send({ error: `Unsupported file type: ${data.mimetype}` });
+      }
+    } catch (err) {
+      console.error('[UploadRoute] Error parsing file content:', err);
+      return reply.status(500).send({ error: `Failed to parse file: ${(err as Error).message}` });
+    }
+
+    let qPoints: QdrantPoint[] = [];
+
+    if (isImage) {
+      // Multimodal image embedding pathway
+      const base64Image = buffer.toString('base64');
+      const imageVector = await embeddingService.embedImage(base64Image);
+
+      qPoints = [{
+        id: crypto.randomUUID(),
+        vector: imageVector,
+        payload: {
+          userId,
+          chunkId: crypto.randomUUID(),
+          source: 'image',
+          url: fileUrl,
+          title: data.filename,
+          content: text || `Uploaded image: ${data.filename}`,
+          timestamp: Math.floor(Date.now() / 1000),
+          metadata: {
+            modality: 'image',
+            fileUrl,
+            memoryId,
+            ocrText: text,
+          },
+        },
+      }];
+    } else {
+      // Document text chunking & embedding pathway
+      const chunks = chunker.chunk(text || 'Empty document.', {
+        title: data.filename,
+        url: fileUrl,
+        source,
+        timestamp: Math.floor(Date.now() / 1000),
+        userId,
+      });
+
+      const textPieces = chunks.map((c) => c.text);
+      const vectors = await embeddingService.embed(textPieces);
+
+      qPoints = chunks.map((chunk, i) => ({
+        id: chunk.id,
+        vector: vectors[i],
+        payload: {
+          userId,
+          chunkId: chunk.id,
+          source,
+          url: fileUrl,
+          title: data.filename,
+          content: chunk.text,
+          timestamp: Math.floor(Date.now() / 1000),
+          metadata: {
+            fileUrl,
+            memoryId,
+          },
+        },
+      }));
+    }
+
+    await qdrantService.ensureCollection();
+    await qdrantService.upsertMemories(qPoints);
+    await incrementIngestCounter(userId);
+
+    // Evaluate rules
+    const prismaInstance = (fastify as any).prisma || (await import('../prisma.js')).prisma;
+    const automation = new AutomationService(prismaInstance);
+    await automation.evaluateRules(userId, memoryId, 'ON_INGEST', {
+      title: data.filename,
+      content: text || `Uploaded file: ${data.filename}`,
+      source,
+      metadata: { fileUrl },
+    });
+
+    // Notify WS
+    await broadcastToUser(userId, {
+      type: 'ingest_status',
+      data: { memoryId, title: data.filename, source, status: 'indexed' },
+    });
+
     return {
       success: true,
-      memoryId: crypto.randomUUID(),
-      chunksCreated: 5,
+      memoryId,
+      chunksCreated: qPoints.length,
       status: 'indexed',
+      fileUrl,
     };
   });
 }

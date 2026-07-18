@@ -5,17 +5,20 @@ import { prisma } from '../prisma.js';
 export default async function feedbackRoutes(fastify: FastifyInstance) {
   fastify.post('/api/feedback', { preHandler: authMiddleware }, async (request, reply) => {
     const userId = request.user!.userId;
-    const { memoryId, rating, comment } = request.body as any;
+    const { memoryId, signal, rating, comment } = request.body as any;
 
-    if (!memoryId || rating === undefined) {
-      return reply.status(400).send({ error: 'Memory ID and rating are required' });
+    const actualSignal = signal || 'rating';
+
+    if (!memoryId) {
+      return reply.status(400).send({ error: 'Memory ID is required' });
     }
 
     const item = await prisma.feedback.create({
       data: {
         userId,
         memoryId,
-        rating: parseInt(rating, 10),
+        signal: actualSignal,
+        rating: rating !== undefined && rating !== null ? parseInt(rating, 10) : null,
         comment,
       },
     });

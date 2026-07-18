@@ -2,6 +2,7 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 import { config } from '../../config.js';
 import { QDRANT_COLLECTION } from '@memora/shared';
 import { SearchResult, HybridSearchParams } from '@memora/shared';
+import { EmbeddingService } from './embedding.js';
 
 export interface QdrantPoint {
   id: string;
@@ -71,6 +72,34 @@ export class QdrantService {
           field_name: 'folderId',
           field_schema: 'keyword',
         });
+        await this.client.createPayloadIndex(QDRANT_COLLECTION, {
+          field_name: 'teamId',
+          field_schema: 'keyword',
+        });
+        await this.client.createPayloadIndex(QDRANT_COLLECTION, {
+          field_name: 'chunkId',
+          field_schema: 'keyword',
+        });
+        await this.client.createPayloadIndex(QDRANT_COLLECTION, {
+          field_name: 'url',
+          field_schema: 'keyword',
+        });
+        await this.client.createPayloadIndex(QDRANT_COLLECTION, {
+          field_name: 'tags',
+          field_schema: 'keyword',
+        });
+        await this.client.createPayloadIndex(QDRANT_COLLECTION, {
+          field_name: 'people',
+          field_schema: 'keyword',
+        });
+        await this.client.createPayloadIndex(QDRANT_COLLECTION, {
+          field_name: 'title',
+          field_schema: 'text',
+        });
+        await this.client.createPayloadIndex(QDRANT_COLLECTION, {
+          field_name: 'content',
+          field_schema: 'text',
+        });
       }
     } catch (err) {
       console.error('[QdrantService] ensureCollection failed:', err);
@@ -124,17 +153,56 @@ export class QdrantService {
       }
     }
 
-    // Dense search parameters
-    const response = await this.client.search(QDRANT_COLLECTION, {
-      vector: params.vector,
-      filter: {
-        must: filterConditions,
-      },
-      limit: params.limit || 10,
-      with_payload: true,
-    });
+    let responsePoints: any[] = [];
+    const limit = params.limit || 10;
 
-    return response.map((point) => {
+    if (params.query) {
+      // Hybrid RRF Search with dense vector and sparse keyword matches
+      const prefetch: any[] = [
+        {
+          query: params.vector,
+          filter: { must: filterConditions },
+          limit: limit * 3,
+        },
+        {
+          filter: {
+            must: [
+              ...filterConditions,
+              {
+                should: [
+                  { key: 'title', match: { text: params.query } },
+                  { key: 'content', match: { text: params.query } },
+                ],
+              },
+            ],
+          },
+          limit: limit * 3,
+        },
+      ];
+
+      const queryRes = await this.client.query(QDRANT_COLLECTION, {
+        prefetch,
+        query: {
+          fusion: 'rrf',
+        },
+        limit: limit * 3,
+        with_payload: true,
+      });
+      responsePoints = queryRes.points || [];
+    } else {
+      // Pure dense search fallback
+      const searchRes = await this.client.search(QDRANT_COLLECTION, {
+        vector: params.vector,
+        filter: {
+          must: filterConditions,
+        },
+        limit: limit,
+        with_payload: true,
+      });
+      responsePoints = searchRes;
+    }
+
+    const results = responsePoints.map((point) => {
       const payload = point.payload as any;
       return {
         id: point.id as string,
@@ -143,11 +211,34 @@ export class QdrantService {
         url: payload.url || '',
         source: payload.source || 'web',
         timestamp: payload.timestamp || 0,
-        score: point.score,
+        score: point.score || 1.0,
         chunkId: payload.chunkId || '',
         metadata: payload.metadata || {},
       };
     });
+
+    if (params.query && results.length > 0) {
+      // Run Voyage AI Reranker on fused results
+      try {
+        const documents = results.map((r) => `${r.title}\n\n${r.content}`);
+        const embeddingService = new EmbeddingService();
+        const reranked = await embeddingService.rerank(params.query, documents);
+        
+        const finalResults = reranked.map((item) => {
+          const match = results[item.index];
+          return {
+            ...match,
+            score: item.score,
+          };
+        });
+        return finalResults.slice(0, limit);
+      } catch (err) {
+        console.warn('[QdrantService] Reranking failed, returning RRF results:', err);
+        return results.slice(0, limit);
+      }
+    }
+
+    return results;
   }
 
   public async getTimeline(
