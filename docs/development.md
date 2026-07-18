@@ -72,6 +72,12 @@ We use Turborepo to orchestrate tasks. You can run commands globally or target s
 - `pnpm lint`: Run ESLint and check formatting.
 - `pnpm clean`: Wipe build outputs (`dist/`, `.turbo/`, `node_modules/`).
 
+### Target Specific Package Runs
+*   **Fastify API Server:** `pnpm --filter @memora/server dev`
+*   **BullMQ Background Worker:** `pnpm --filter @memora/worker dev`
+*   **Client React Dashboard:** `pnpm --filter @memora/client dev`
+*   **MV3 Extension Build (Watch Mode):** `pnpm --filter @memora/extension dev`
+
 ---
 
 ## 4. Loading the Browser Extension
