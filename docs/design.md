@@ -193,14 +193,17 @@ A glass container matching the AI bubble, containing three dots (size 6px, color
 ### 8.1 Knowledge Graph (Three.js / React Three Fiber)
 - **Material:** `MeshPhysicalMaterial` with transmission and roughness settings.
 - **Camera:** Smooth drift and orbit controls.
-- **Fallback (2D):** A 2D force-directed canvas layout.
+- **Performance Fallback (2D Physics Engine) (F42):**
+    - High-performance HTML5 `<canvas>` force-directed simulation.
+    - Physical forces: charge repulsion (Coulomb variant), edge spring constraints (Hooke's law), and center gravity pulls.
+    - Interactions: interactive panning, canvas zoom gestures, node drag-and-drop repositioning with inertia, and connection highlighting on mouse hover.
 
 ### 8.2 Layout Presets
 - **ADHD Focus**: Full screen search bar.
 - **Explorer**: Split view (Graph left, detail right).
 - **Timeline**: Chronological feed focus.
 - **Graph**: Immersive 3D graph canvas.
-- **Board**:Masonry grid.
+- **Board**: Masonry grid.
 - **People**: Contacts directory.
 
 ---
@@ -209,5 +212,6 @@ A glass container matching the AI bubble, containing three dots (size 6px, color
 
 - Keyboard navigation shortcuts (`Ctrl+K` for search, `Ctrl+B` for sidebar, logical focus order).
 - Screen reader ARIA declarations (`aria-live="polite"`, proper descriptors).
-- ADHD Focus Mode adding `.adhd-focus-active` to body, dimming backdrops, disabling non-essential motion, and introducing a session timer.
-- Reduce transparency fallback, increasing background opacity to 95% and removing backdrop blur.
+- **ADHD Focus Mode:** Adds `.adhd-focus-active` to body, dims cosmic glow backdrops by 60%, disables non-essential motion, and introduces a dedicated visual focus timer tracking session intervals.
+- **Reduce Transparency:** Replaces backdrop blurs with high-contrast, fully opaque background layers (`rgba(10, 10, 15, 0.95)`).
+- **Color-Blind safe palette:** Swappable CSS root variables shifting critical status cues to deuteron/protan safe color ranges.
