@@ -15,6 +15,10 @@ export class EmbeddingService {
     if (this.mode === 'local') {
       return this.embedLocal(texts);
     } else {
+      if (!config.embedding.voyageApiKey) {
+        console.warn('[EmbeddingService] Voyage API key missing, falling back to local extractor.');
+        return this.embedLocal(texts);
+      }
       return this.embedCloud(texts);
     }
   }

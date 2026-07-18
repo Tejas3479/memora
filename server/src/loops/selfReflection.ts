@@ -28,25 +28,28 @@ export class SelfReflectionLoop {
     }
 
     try {
-      const model = this.ai.getGenerativeModel({ model: config.llm.model });
+      const model = this.ai.getGenerativeModel({
+        model: config.llm.model,
+        generationConfig: { responseMimeType: 'application/json' },
+      });
       const prompt = `You are a self-reflection cognitive engine. Examine these memory logs from IDs: ${input.recentMemoryIds.join(', ')}
 Identify patterns, gaps in knowledge, and suggestions. Return a JSON matching this structure:
 {
-  insights: Array<{
-    type: 'pattern' | 'gap' | 'recommendation';
-    description: string;
-    confidence: number;
-    relatedMemories: string[];
-  }>;
-  qualityScore: number; // 0.0 - 1.0
-  suggestedActions: string[];
+  "insights": [
+    {
+      "type": "pattern",
+      "description": "string description",
+      "confidence": 0.8,
+      "relatedMemories": ["id1", "id2"]
+    }
+  ],
+  "qualityScore": 0.9,
+  "suggestedActions": ["action item 1"]
 }`;
 
       const response = await model.generateContent(prompt);
       const text = response.response.text();
-      const start = text.indexOf('{');
-      const end = text.lastIndexOf('}') + 1;
-      return JSON.parse(text.slice(start, end)) as SelfReflectionOutput;
+      return JSON.parse(text.trim()) as SelfReflectionOutput;
     } catch (err) {
       console.error('[SelfReflectionLoop] Error during reflection execution:', err);
       return {
