@@ -27,7 +27,8 @@ export class QdrantService {
   constructor() {
     this.client = new QdrantClient({
       url: config.qdrant.url,
-      apiKey: config.qdrant.apiKey,
+      apiKey: config.qdrant.apiKey || undefined,
+      checkCompatibility: false,
     });
   }
 
