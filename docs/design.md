@@ -20,7 +20,7 @@ All visual variables flow from a single DTCG-compliant source of truth. Tokens a
 graph LR
     Tokens["design/tokens.json"] -->|"Style Dictionary"| CSS["client/src/index.css"]
     Tokens -->|"Extension Mapper"| ExtensionCSS["extension/dist/popup.css"]
-    Tokens -->|"React Native (future)"| Mobile["Design Tokens for Mobile"]
+    Tokens -->|"React Native Future Integration"| Mobile["Design Tokens for Mobile"]
     Tokens -->|"Accessibility Variants"| A11y["High Contrast / Reduced Motion / Color-Blind Safe"]
 ```
 
