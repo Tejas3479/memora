@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
 import { planLimitMiddleware, incrementIngestCounter } from '../middleware/planLimit.js';
+import { ValidationError } from '../lib/errors.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config.js';
 import { TextChunker } from '../services/ai/chunker.js';
@@ -35,7 +36,11 @@ export default async function transcribeRoutes(fastify: FastifyInstance) {
     }
 
     if (!audioBuffer) {
-      return reply.status(400).send({ error: 'Missing audio file' });
+      throw new ValidationError('Missing audio file');
+    }
+
+    if (audioBuffer.length > 15 * 1024 * 1024) {
+      throw new ValidationError('Audio file size exceeds 15MB limit');
     }
 
     let transcript = '';
