@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
 import { planLimitMiddleware, incrementIngestCounter } from '../middleware/planLimit.js';
+import { ValidationError, NotFoundError, ForbiddenError, InternalError } from '../lib/errors.js';
 import { TextChunker } from '../services/ai/chunker.js';
 import { EmbeddingService } from '../services/ai/embedding.js';
 import { QdrantService, QdrantPoint } from '../services/ai/qdrant.js';
@@ -32,7 +33,7 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
     const userId = request.user!.userId;
     const result = ingestBodySchema.safeParse(request.body);
     if (!result.success) {
-      return reply.status(400).send({ error: result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') });
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
     }
     const { content, url, source, title, timestamp, metadata = {} } = result.data;
 
@@ -99,9 +100,12 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
 
   fastify.get('/uploads/:filename', async (request, reply) => {
     const { filename } = request.params as any;
-    const filePath = path.join(UPLOADS_DIR, filename);
+    const filePath = path.resolve(UPLOADS_DIR, filename);
+    if (!filePath.startsWith(UPLOADS_DIR)) {
+      throw new ForbiddenError('Directory traversal is not allowed');
+    }
     if (!fs.existsSync(filePath)) {
-      return reply.status(404).send({ error: 'File not found' });
+      throw new NotFoundError('File not found');
     }
     const stream = fs.createReadStream(filePath);
     return reply.send(stream);
@@ -111,7 +115,7 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
     const userId = request.user!.userId;
     const data = await request.file();
     if (!data) {
-      return reply.status(400).send({ error: 'No file uploaded' });
+      throw new ValidationError('No file uploaded');
     }
 
     const buffer = await data.toBuffer();
@@ -151,11 +155,11 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
           text = `OCR failed for image: ${data.filename}`;
         }
       } else {
-        return reply.status(400).send({ error: `Unsupported file type: ${data.mimetype}` });
+        throw new ValidationError(`Unsupported file type: ${data.mimetype}`);
       }
     } catch (err) {
       console.error('[UploadRoute] Error parsing file content:', err);
-      return reply.status(500).send({ error: `Failed to parse file: ${(err as Error).message}` });
+      throw new InternalError(`Failed to parse file: ${(err as Error).message}`);
     }
 
     let qPoints: QdrantPoint[] = [];
