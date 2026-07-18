@@ -2,6 +2,8 @@
 
 **Personal real-time memory layer that captures, indexes, and synthesizes everything you read and learn.**
 
+![Memora Obsidian Memory Dashboard](docs/images/dashboard_mockup.jpg)
+
 Memora turns your browsing activity, notes, and saved content into a searchable, AI-synthesized knowledge base. It captures information passively through a browser extension, chunks and embeds it for semantic retrieval, and applies continuous loop engineering—self-reflection, consolidation, evaluation, and dreaming—to surface insights you didn't know you had.
 
 ---
