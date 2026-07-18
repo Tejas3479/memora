@@ -3,11 +3,14 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
+import { Redis } from 'ioredis';
 import { config } from './config.js';
 import { errorHandler } from './lib/errors.js';
 import { registerWebSocket } from './websocket.js';
 import { QdrantService } from './services/ai/qdrant.js';
 import { setupRecurringJobs } from './jobs/index.js';
+
+const redisClient = new Redis(config.redis.url);
 
 // Route Imports
 import authRoutes from './routes/auth.js';
@@ -53,7 +56,7 @@ await app.register(rateLimit, {
   global: true,
   max: 100,
   timeWindow: 15 * 60 * 1000,
-  redis: config.redis.url,
+  redis: redisClient,
 });
 
 await app.register(websocket);
@@ -118,6 +121,7 @@ for (const signal of signals) {
   process.on(signal, async () => {
     app.log.info(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);
     await app.close();
+    await redisClient.quit();
     process.exit(0);
   });
 }

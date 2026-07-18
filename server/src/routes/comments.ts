@@ -10,13 +10,13 @@ export default async function commentsRoutes(fastify: FastifyInstance) {
     if (!result.success) {
       return reply.status(400).send({ error: result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') });
     }
-    const { memoryId, content, parentId } = result.data;
+    const { memoryId, text, parentId } = result.data;
 
     const comment = await prisma.comment.create({
       data: {
         userId,
         memoryId,
-        content,
+        text,
         parentId,
       },
       include: {
@@ -54,14 +54,14 @@ export default async function commentsRoutes(fastify: FastifyInstance) {
     if (!result.success) {
       throw new Error(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
     }
-    const { content } = result.data;
+    const { text } = result.data;
 
     const exists = await prisma.comment.findFirst({ where: { id, userId } });
     if (!exists) throw new Error('Comment not found or access denied');
 
     return prisma.comment.update({
       where: { id },
-      data: { content },
+      data: { text },
     });
   });
 

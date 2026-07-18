@@ -8,15 +8,15 @@ datasource db {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  email           String           @unique
+  id              String             @id @default(cuid())
+  email           String             @unique
   passwordHash    String
   name            String
-  googleId        String?          @unique
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  plan            Plan             @default(FREE)
-  settings        Json             @default("{}")
+  googleId        String?            @unique
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  plan            Plan               @default(FREE)
+  settings        Json               @default("{}")
   teams           TeamMember[]
   subscriptions   Subscription[]
   integrations    Integration[]
@@ -27,6 +27,7 @@ model User {
   people          Person[]
   loopExecutions  LoopExecution[]
   highlights      Highlight[]
+  pushSubs        PushSubscription[]
 
   @@index([email])
 }
@@ -91,6 +92,7 @@ model Integration {
   accessToken  String?   // encrypted
   refreshToken String?   // encrypted
   scope        String?
+  cursor       String?   // pagination cursor
   expiresAt    DateTime?
   metadata     Json      @default("{}")
   createdAt    DateTime  @default(now())
@@ -105,7 +107,8 @@ model Feedback {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   memoryId  String   // Point ID in Qdrant
-  rating    Int      // 1-5
+  signal    String   // "search_click", "search_upvote", "search_downvote", "rating"
+  rating    Int?     // 1-5
   comment   String?
   createdAt DateTime @default(now())
 
@@ -118,7 +121,7 @@ model Comment {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   memoryId  String
-  content   String
+  text      String
   parentId  String?
   parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies   Comment[] @relation("CommentReplies")
@@ -228,6 +231,17 @@ model LoopExecution {
 
   @@index([userId])
   @@index([loopType])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String
+  keys      Json     // { p256dh, auth }
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 enum Plan {
