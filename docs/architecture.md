@@ -8,14 +8,14 @@ The architecture follows a clear separation between synchronous HTTP handling an
 
 ```mermaid
 graph TD
-    subgraph Browser Extension (MV3)
+    subgraph "Browser Extension (MV3)"
         ContentScript[Content Script]
         BackgroundWorker[Background Service Worker]
         SidebarPanel[Sidebar Panel]
         Popup[Popup UI]
     end
 
-    subgraph API Server (Fastify)
+    subgraph "API Server (Fastify)"
         AuthRoutes[Auth Routes]
         IngestRoutes[Ingest Routes]
         SearchRoutes[Search Routes]
@@ -27,14 +27,14 @@ graph TD
         BillingService[Billing Service]
     end
 
-    subgraph Storage & Infrastructure
+    subgraph "Storage & Infrastructure"
         Postgres[(PostgreSQL + Prisma)]
         Qdrant[(Qdrant Vector DB)]
         Redis[(Redis Cache / BullMQ Backend)]
         Stripe[Stripe API]
     end
 
-    subgraph Background Worker (BullMQ)
+    subgraph "Background Worker (BullMQ)"
         BullWorker[Worker Process]
         EmbedJob[Embed Job]
         ConsolidateJob[Consolidate Job]
