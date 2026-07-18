@@ -78,7 +78,7 @@ pnpm seed
 pnpm dev
 ```
 
-The API server starts on `http://localhost:3000`, the dashboard on `http://localhost:5173`, and the browser extension can be loaded from `packages/extension/dist` via Chrome's developer mode.
+The API server starts on `http://localhost:4000`, the dashboard on `http://localhost:3000`, and the browser extension can be loaded from `extension/dist` via Chrome's developer mode.
 
 ---
 
@@ -86,20 +86,19 @@ The API server starts on `http://localhost:3000`, the dashboard on `http://local
 
 ```
 memora/
-├── packages/
-│   ├── shared/         # Shared types, constants, validation schemas, utilities
-│   ├── server/         # Fastify API server, routes, middleware, Prisma client
-│   ├── worker/         # BullMQ worker, job processors, loop engine
-│   ├── client/         # React + Vite dashboard application
-│   └── extension/      # Manifest V3 browser extension
-├── docs/               # Architecture, API, security, and testing documentation
+├── shared/         # Shared types, constants, validation schemas, utilities
+├── server/         # Fastify API server, routes, middleware, Prisma client
+├── worker/         # BullMQ worker, job processors, loop engine
+├── client/         # React + Vite dashboard application
+├── extension/      # Manifest V3 browser extension
+├── docs/           # Architecture, API, security, and testing documentation
 ├── docker-compose.yml  # Local infrastructure (Postgres, Redis, Qdrant)
 ├── pnpm-workspace.yaml
 ├── turbo.json
 └── package.json
 ```
 
-| Package       | Description                                                                 |
+| Workspace     | Description                                                                 |
 | ------------- | --------------------------------------------------------------------------- |
 | `shared`      | TypeScript types, Zod schemas, constants, and utility functions             |
 | `server`      | Fastify HTTP server with REST/WebSocket routes, auth, billing, and Prisma   |
