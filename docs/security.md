@@ -16,6 +16,8 @@ The Chrome extension is restricted from performing arbitrary code execution. Int
 ## 2. Ingestion Security & Input Sanitization
 - **DOMPurify:** Prior to sending scraped page content from `content.ts` to `background.ts` and the backend, all HTML content is sanitized using DOMPurify to eliminate `<script>`, `<iframe>`, and other active XSS vectors.
 - **Strict JSON Schemas:** Every endpoint uses Fastify-supported AJV validation schemas to prevent SQL Injection, Buffer Overflows, or arbitrary payload shapes.
+- **Directory Traversal Mitigation (F03):** The file server route `/uploads/:filename` employs absolute path resolution checks via `path.resolve` and verify that the target path begins with the `UPLOADS_DIR` prefix. Attempts to request files outside this directory throw a `ForbiddenError` immediately.
+- **Structured Error Masking:** Centralized error boundary handles formatting of database and framework exceptions. Relational databases or file storage inner traces are never leaked in response payloads; standard custom error classes (`ValidationError`, `NotFoundError`, `ForbiddenError`, `InternalError`) translate issues into sanitized consumer-friendly API errors.
 
 ---
 
