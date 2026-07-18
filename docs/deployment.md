@@ -103,3 +103,7 @@ Turborepo orchestrates builds across the workspaces. In the CI pipeline, enable 
 3. Generate Prisma client: `pnpm --filter @memora/server db:generate`
 4. Build all workspaces: `pnpm build`
 5. Run test suites: `pnpm test`
+
+### Production Database Migrations
+*   **Safe Migrations:** Do NOT run `prisma migrate dev` or `prisma db push` in production pipelines as they are interactive and can cause data loss.
+*   **CD Command:** Run `pnpm --filter @memora/server db:migrate` (or raw `prisma migrate deploy`) during the release phase to apply pending migration SQL files safely.
