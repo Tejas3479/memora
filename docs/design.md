@@ -4,6 +4,12 @@
 **Scope:** Client Dashboard (`client/`), MV3 Browser Extension (`extension/`), and Shared Component Modules.  
 **Philosophy:** A structured visual hierarchy optimized for cognitive recall, readability under extended use, and hardware-accelerated rendering. Inclusivity, performance, and emotional resonance are non-negotiable.
 
+![Memora Obsidian Memory Dashboard Interface](images/dashboard_mockup.jpg)
+*Fig 1. Memora Obsidian Memory Dashboard Interface Mockup.*
+
+![Memora Extension Sidebar Panel Overlay](images/extension_sidebar_mockup.jpg)
+*Fig 2. Memora Browser Extension Overlay Context Panel Mockup.*
+
 ---
 
 ## 1. Token Pipeline Architecture
