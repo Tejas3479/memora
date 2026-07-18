@@ -4,7 +4,10 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 import crypto from 'crypto';
 
 const prisma = new PrismaClient();
-const qdrant = new QdrantClient({ url: process.env.QDRANT_URL || 'http://localhost:6333' });
+const qdrant = new QdrantClient({
+  url: process.env.QDRANT_URL || 'http://localhost:6333',
+  checkCompatibility: false,
+});
 const QDRANT_COLLECTION = 'memories';
 
 async function embedText(text: string): Promise<number[]> {

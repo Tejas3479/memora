@@ -10,6 +10,7 @@ export class QdrantService {
     this.client = new QdrantClient({
       url: config.qdrant.url,
       apiKey: config.qdrant.apiKey,
+      checkCompatibility: false,
     });
   }
 

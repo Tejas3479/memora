@@ -5,7 +5,10 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AutomationRunnerPayload, AutomationRunnerResult } from '@memora/shared';
 
 const prisma = new PrismaClient();
-const qdrant = new QdrantClient({ url: process.env.QDRANT_URL || 'http://localhost:6333' });
+const qdrant = new QdrantClient({
+  url: process.env.QDRANT_URL || 'http://localhost:6333',
+  checkCompatibility: false,
+});
 
 export async function automationProcessor(job: Job<AutomationRunnerPayload>): Promise<AutomationRunnerResult> {
   const { ruleId, memoryId, userId } = job.data;
