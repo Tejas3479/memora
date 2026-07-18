@@ -142,10 +142,11 @@ All endpoints, unless otherwise specified, return JSON and expect `Content-Type:
       "dateTo": "2026-07-17T23:59:59Z"
     },
     "limit": 10,
-    "offset": 0
+    "offset": 0,
+    "stream": true
   }
   ```
-- **Response (200 OK):**
+- **Response (200 OK - Standard JSON when `stream` is `false` or absent):**
   ```json
   {
     "results": [
@@ -175,12 +176,31 @@ All endpoints, unless otherwise specified, return JSON and expect `Content-Type:
     "took": 45
   }
   ```
+- **Response (200 OK - Server-Sent Events stream when `stream` is `true`):**
+  Headers: `Content-Type: text/event-stream`
+  Yields chunked SSE data blocks:
+  ```text
+  data: {"type":"sources","results":[{"id":"uuid-v4-point-id","title":"Scaling Qdrant",...}]}
+
+  data: {"type":"token","token":"To "}
+
+  data: {"type":"token","token":"scale "}
+
+  data: {"type":"token","token":"Qdrant... "}
+
+  data: {"type":"done"}
+  ```
 
 ### 2. Get Memory Timeline
 - **Method:** `GET`
 - **Path:** `/api/timeline`
 - **Auth Required:** Yes
-- **Query Parameters:** `limit` (default 20), `offset` (default 0), `source` (optional), `folderId` (optional)
+- **Query Parameters:** 
+  *   `limit` (default 20)
+  *   `offset` (default 0)
+  *   `source` (optional - e.g. `web`, `slack`)
+  *   `dateFrom` (optional - ISO Date String)
+  *   `dateTo` (optional - ISO Date String)
 - **Response (200 OK):**
   ```json
   {
@@ -198,6 +218,20 @@ All endpoints, unless otherwise specified, return JSON and expect `Content-Type:
     "hasMore": true
   }
   ```
+
+### 3. CSV / ZIP Data Export (F13)
+- **Method:** `POST`
+- **Path:** `/api/export`
+- **Auth Required:** Yes
+- **Request Body:**
+  ```json
+  {
+    "format": "zip"
+  }
+  ```
+  *(Supported formats: `json`, `csv`, `zip`)*
+- **Response (200 OK - Attachment):**
+  Returns binary file payload (`application/zip`) triggering a native browser download for `memora_export.zip`.
 
 ---
 
