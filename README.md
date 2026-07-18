@@ -10,22 +10,34 @@ Memora turns your browsing activity, notes, and saved content into a searchable,
 
 ## Architecture Overview
 
-```
-Browser Extension (Manifest V3)
-        │
-        ▼
-   API Server (Fastify)
-        │
-        ├──▶ PostgreSQL (relational data via Prisma)
-        ├──▶ Qdrant (vector similarity search)
-        ├──▶ Redis (caching + BullMQ job queues)
-        │
-        ▼
-  Background Worker (BullMQ)
-        │
-        ├──▶ Voyage AI (embedding generation)
-        ├──▶ Google Gemini (LLM synthesis)
-        └──▶ Loop Engine (reflection, consolidation, evaluation, dreaming)
+```mermaid
+graph TD
+    Ext[Browser Extension MV3] -->|HTTPS / WSS| Srv[Fastify API Server]
+    
+    subgraph Core Databases
+        Srv -->|Prisma| PG[(PostgreSQL)]
+        Srv -->|Vector Queries| QD[(Qdrant DB)]
+        Srv -->|Cache / Rates| RD[(Redis)]
+    end
+
+    subgraph Background Work
+        RD -->|BullMQ Queue| Wrk[BullMQ Worker]
+        Wrk -->|Consolidation & Dreaming| QD
+        Wrk -->|Entity Sync| PG
+    end
+
+    subgraph Cognitive & AI Layers
+        Wrk -->|Embed Chunks| VY[Voyage AI]
+        Wrk -->|LLM Synthesis & Loops| GM[Google Gemini]
+        Srv -->|Stateful Search Graphs| GM
+    end
+
+    classDef default fill:#0f0f16,stroke:#2c2c3d,stroke-width:1px,color:#e4e4ed;
+    classDef db fill:rgba(6,182,212,0.1),stroke:rgba(6,182,212,0.3),stroke-width:1.5px,color:#06b6d4;
+    classDef ai fill:rgba(124,58,237,0.1),stroke:rgba(124,58,237,0.3),stroke-width:1.5px,color:#7c3aed;
+    
+    class PG,QD,RD db;
+    class VY,GM ai;
 ```
 
 Content flows from the browser extension through the API server, which persists relational data in PostgreSQL and enqueues async work via Redis-backed BullMQ queues. The background worker processes jobs—chunking text, generating embeddings via Voyage AI, storing vectors in Qdrant, and running LLM synthesis through Google Gemini. Loop engineering processes run on scheduled intervals to consolidate similar memories, discover latent connections, and continuously improve retrieval quality.
