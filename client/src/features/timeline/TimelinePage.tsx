@@ -4,7 +4,7 @@ import MemoryCard from '../../components/MemoryCard.js';
 import useInfiniteScroll from '../../hooks/useInfiniteScroll.js';
 
 export default function TimelinePage() {
-  const { items, isLoading, hasMore, fetchMore, sourceFilter, setSourceFilter, reset } = useTimelineStore();
+  const { items, isLoading, hasMore, fetchMore, sourceFilter, setSourceFilter, dateFrom, dateTo, setDateFilter, reset } = useTimelineStore();
 
   useEffect(() => {
     reset();
@@ -32,6 +32,37 @@ export default function TimelinePage() {
           <h1 className="text-2xl font-bold text-white tracking-wide">Memory Timeline</h1>
           <p className="text-sm text-memora-text-muted">Chronological history of all indexed captures.</p>
         </div>
+      </div>
+
+      {/* Date Scrubber */}
+      <div className="flex flex-wrap items-center gap-3 bg-memora-surface/60 border border-memora-border p-3 rounded-2xl text-xs select-none">
+        <span className="text-memora-text-muted font-bold uppercase tracking-wider text-[9px]">Date Scrubber</span>
+        <div className="flex items-center gap-2">
+          <span className="text-memora-text-muted">From:</span>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFilter(e.target.value, dateTo)}
+            className="bg-[#050508]/80 border border-memora-border rounded-lg px-2 py-1 text-white focus:outline-none focus:border-memora-accent cursor-pointer text-xs"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-memora-text-muted">To:</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateFilter(dateFrom, e.target.value)}
+            className="bg-[#050508]/80 border border-memora-border rounded-lg px-2 py-1 text-white focus:outline-none focus:border-memora-accent cursor-pointer text-xs"
+          />
+        </div>
+        {(dateFrom || dateTo) && (
+          <button
+            onClick={() => setDateFilter('', '')}
+            className="ml-auto text-[10px] text-memora-accent hover:underline font-bold uppercase cursor-pointer"
+          >
+            Reset Scrubber
+          </button>
+        )}
       </div>
 
       {/* Floating Capsule Tags (Section 3.2) */}

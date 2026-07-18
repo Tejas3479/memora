@@ -254,6 +254,8 @@ export class QdrantService {
     limit: number,
     offset: number,
     source?: string,
+    dateFrom?: string,
+    dateTo?: string,
   ): Promise<{ results: SearchResult[]; total: number }> {
     const filterConditions: any[] = [
       {
@@ -266,7 +268,21 @@ export class QdrantService {
       filterConditions.push({
         key: 'source',
         match: { value: source },
-      },);
+      });
+    }
+
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom) {
+        range.gte = Math.floor(new Date(dateFrom).getTime() / 1000);
+      }
+      if (dateTo) {
+        range.lte = Math.floor(new Date(dateTo).getTime() / 1000);
+      }
+      filterConditions.push({
+        key: 'timestamp',
+        range,
+      });
     }
 
     const response = await this.client.scroll(QDRANT_COLLECTION, {
