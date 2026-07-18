@@ -77,6 +77,36 @@ User Query: ${query}
 Synthesized Cited Answer:`;
   }
 
+  public async *synthesizeStream(query: string, chunks: SearchResult[]): AsyncGenerator<string, void, unknown> {
+    if (chunks.length === 0) {
+      yield "I couldn't find any memories related to your query.";
+      return;
+    }
+
+    if (!this.ai) {
+      const fallback = this.fallbackSynthesis(query, chunks);
+      yield fallback.answer;
+      return;
+    }
+
+    try {
+      const model = this.ai.getGenerativeModel({ model: config.llm.model });
+      const prompt = this.buildSynthesisPrompt(query, chunks);
+
+      const resultStream = await model.generateContentStream(prompt);
+      for await (const chunk of resultStream.stream) {
+        const text = chunk.text();
+        if (text) {
+          yield text;
+        }
+      }
+    } catch (err) {
+      console.error('[SynthesisService] Error during synthesis stream:', err);
+      const fallback = this.fallbackSynthesis(query, chunks);
+      yield fallback.answer;
+    }
+  }
+
   private fallbackSynthesis(query: string, chunks: SearchResult[]): SynthesizedAnswer {
     // Generate a simple rule-based summary matching chunks
     const snippets = chunks.slice(0, 2).map((c, i) => `"${c.content}" [${i + 1}]`);
