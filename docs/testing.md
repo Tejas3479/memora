@@ -15,10 +15,17 @@ Unit tests are written using `vitest` and cover stateless modules, helpers, and 
   - `EmbeddingService`: Verifies fallback triggers when going from cloud (`Voyage AI`) to local (`transformers` Xenova all-MiniLM-L6-v2) embedding modes.
   - `QdrantService`: Tests mapping logic from Qdrant payloads to `SearchResult` models and ensures proper filters are generated.
 
-Run unit tests via:
+Run unit tests via the server package:
 ```bash
 pnpm --filter @memora/server test
 ```
+
+Or run all workspace test suites concurrently from the monorepo root:
+```bash
+pnpm test
+```
+
+*Note: Integration test suites connect to containerized databases (PostgreSQL, Redis, Qdrant) spun up via Docker Compose. Qdrant client warnings are automatically suppressed during testing (`checkCompatibility: false`).*
 
 ---
 
