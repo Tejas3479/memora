@@ -33,8 +33,8 @@ graph TD
     end
 
     classDef default fill:#0f0f16,stroke:#2c2c3d,stroke-width:1px,color:#e4e4ed;
-    classDef db fill:rgba(6,182,212,0.1),stroke:rgba(6,182,212,0.3),stroke-width:1.5px,color:#06b6d4;
-    classDef ai fill:rgba(124,58,237,0.1),stroke:rgba(124,58,237,0.3),stroke-width:1.5px,color:#7c3aed;
+    classDef db fill:#06b6d41a,stroke:#06b6d44d,stroke-width:1.5px,color:#06b6d4;
+    classDef ai fill:#7c3aed1a,stroke:#7c3aed4d,stroke-width:1.5px,color:#7c3aed;
     
     class PG,QD,RD db;
     class VY,GM ai;
