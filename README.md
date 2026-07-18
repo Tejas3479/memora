@@ -26,7 +26,7 @@ graph TD
         Wrk -->|Entity Sync| PG
     end
 
-    subgraph Cognitive & AI Layers
+    subgraph "Cognitive & AI Layers"
         Wrk -->|Embed Chunks| VY[Voyage AI]
         Wrk -->|LLM Synthesis & Loops| GM[Google Gemini]
         Srv -->|Stateful Search Graphs| GM
