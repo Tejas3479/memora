@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../../config.js';
 import { SearchResult, SynthesizedAnswer } from '@memora/shared';
+import { retry } from '../../lib/utils.js';
+import { geminiBreaker } from '../../lib/circuitBreaker.js';
 
 export class SynthesisService {
   private ai: GoogleGenerativeAI | null = null;
@@ -29,7 +31,12 @@ export class SynthesisService {
       const model = this.ai.getGenerativeModel({ model: config.llm.model });
       const prompt = this.buildSynthesisPrompt(query, chunks);
 
-      const result = await model.generateContent(prompt);
+      const result = await geminiBreaker.execute(() =>
+        retry(
+          () => model.generateContent(prompt),
+          { attempts: 3, delay: 1000, backoff: 'exponential' }
+        )
+      );
       const answerText = result.response.text();
 
       // Gather reference sources actually cited in the text in [number] format.
@@ -93,7 +100,12 @@ Synthesized Cited Answer:`;
       const model = this.ai.getGenerativeModel({ model: config.llm.model });
       const prompt = this.buildSynthesisPrompt(query, chunks);
 
-      const resultStream = await model.generateContentStream(prompt);
+      const resultStream = await geminiBreaker.execute(() =>
+        retry(
+          () => model.generateContentStream(prompt),
+          { attempts: 3, delay: 1000, backoff: 'exponential' }
+        )
+      );
       for await (const chunk of resultStream.stream) {
         const text = chunk.text();
         if (text) {

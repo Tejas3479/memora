@@ -8,6 +8,8 @@ import { TextChunker } from '../services/ai/chunker.js';
 import { EmbeddingService } from '../services/ai/embedding.js';
 import { QdrantService } from '../services/ai/qdrant.js';
 import { broadcastToUser } from '../websocket.js';
+import { retry } from '../lib/utils.js';
+import { geminiBreaker } from '../lib/circuitBreaker.js';
 import crypto from 'crypto';
 
 const chunker = new TextChunker();
@@ -56,23 +58,33 @@ export default async function transcribeRoutes(fastify: FastifyInstance) {
         const model = ai.getGenerativeModel({ model: config.llm.model });
 
         // Step 1: Transcribe the audio file using Gemini's native audio understanding
-        const transcriptionResult = await model.generateContent([
-          {
-            inlineData: {
-              data: audioBuffer.toString('base64'),
-              mimeType: mimeType,
-            },
-          },
-          "Transcribe the audio exactly. Do not describe it, just output the words spoken."
-        ]);
+        const transcriptionResult = await geminiBreaker.execute(() =>
+          retry(
+            () => model.generateContent([
+              {
+                inlineData: {
+                  data: audioBuffer!.toString('base64'),
+                  mimeType: mimeType,
+                },
+              },
+              "Transcribe the audio exactly. Do not describe it, just output the words spoken."
+            ]),
+            { attempts: 3, delay: 1000, backoff: 'exponential' }
+          )
+        );
 
         transcript = transcriptionResult.response.text() || '';
 
         // Step 2: If notes are provided, expand notes using transcription context
         if (notes.trim()) {
-          const enrichmentResult = await model.generateContent([
-            `Voice Memo Transcript: "${transcript}"\n\nRough Note Context: "${notes}"\n\nTask: Merge the rough note context with the transcript details. Create a clean, well-structured, expanded note in markdown format that captures all information.`
-          ]);
+          const enrichmentResult = await geminiBreaker.execute(() =>
+            retry(
+              () => model.generateContent([
+                `Voice Memo Transcript: "${transcript}"\n\nRough Note Context: "${notes}"\n\nTask: Merge the rough note context with the transcript details. Create a clean, well-structured, expanded note in markdown format that captures all information.`
+              ]),
+              { attempts: 3, delay: 1000, backoff: 'exponential' }
+            )
+          );
           content = enrichmentResult.response.text() || transcript;
         } else {
           content = transcript;

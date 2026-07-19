@@ -7,6 +7,8 @@ import { summarizeRequestSchema, MemorySource } from '@memora/shared';
 import { TextChunker } from '../services/ai/chunker.js';
 import { EmbeddingService } from '../services/ai/embedding.js';
 import { QdrantService, QdrantPoint } from '../services/ai/qdrant.js';
+import { retry } from '../lib/utils.js';
+import { geminiBreaker } from '../lib/circuitBreaker.js';
 import crypto from 'crypto';
 
 const chunker = new TextChunker();
@@ -58,7 +60,12 @@ Format the output strictly as a JSON object matching this structure:
   "tags": ["tag1", "tag2", "tag3"]
 }`;
 
-        const result = await model.generateContent(prompt);
+        const result = await geminiBreaker.execute(() =>
+          retry(
+            () => model.generateContent(prompt),
+            { attempts: 3, delay: 1000, backoff: 'exponential' }
+          )
+        );
         const text = result.response.text();
         const startIdx = text.indexOf('{');
         const endIdx = text.lastIndexOf('}') + 1;

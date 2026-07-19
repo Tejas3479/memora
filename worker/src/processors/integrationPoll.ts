@@ -2,7 +2,7 @@ import { Job } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import crypto from 'crypto';
-import { createLogger } from '@memora/shared';
+import { createLogger, retry, slackBreaker, notionBreaker, voyageBreaker, qdrantBreaker } from '@memora/shared';
 
 const prisma = new PrismaClient();
 const qdrant = new QdrantClient({
@@ -26,19 +26,26 @@ async function embedText(text: string): Promise<number[]> {
   }
 
   try {
-    const res = await fetch('https://api.voyageai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${voyageKey}`,
-      },
-      body: JSON.stringify({
-        model: 'voyage-3.5',
-        input: [text],
-      }),
-    });
-    if (!res.ok) throw new Error(`Voyage error: ${res.status}`);
-    const body = await res.json();
+    const body = await voyageBreaker.execute(() =>
+      retry(
+        async () => {
+          const res = await fetch('https://api.voyageai.com/v1/embeddings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${voyageKey}`,
+            },
+            body: JSON.stringify({
+              model: 'voyage-3.5',
+              input: [text],
+            }),
+          });
+          if (!res.ok) throw new Error(`Voyage error: ${res.status}`);
+          return res.json();
+        },
+        { attempts: 3, delay: 1000, backoff: 'exponential' }
+      )
+    );
     return body.data[0].embedding;
   } catch (err) {
     logger.warn('Voyage fetch failed, using fallback vector', err);
@@ -62,11 +69,20 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
         if (!token) continue;
 
         const cursorParam = integration.cursor ? `&cursor=${integration.cursor}` : '';
-        const response = await fetch(`https://slack.com/api/conversations.history?channel=C0123456&limit=10${cursorParam}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        const response = await slackBreaker.execute(() =>
+          retry(
+            async () => {
+              const res = await fetch(`https://slack.com/api/conversations.history?channel=C0123456&limit=10${cursorParam}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              });
+              if (!res.ok) throw new Error(`Slack API error: ${res.status}`);
+              return res;
+            },
+            { attempts: 3, delay: 1000, backoff: 'exponential' }
+          )
+        );
 
         const data = await response.json();
         if (data.ok && Array.isArray(data.messages)) {
@@ -76,29 +92,34 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
             const textVector = await embedText(msg.text);
             const memoryId = crypto.randomUUID();
 
-            await qdrant.upsert(QDRANT_COLLECTION, {
-              wait: true,
-              points: [
-                {
-                  id: crypto.randomUUID(),
-                  vector: textVector,
-                  payload: {
-                    userId,
-                    chunkId: crypto.randomUUID(),
-                    source: 'SLACK',
-                    url: `slack://message/${msg.ts}`,
-                    title: `Slack Message from ${msg.user || 'Unknown'}`,
-                    content: msg.text,
-                    timestamp: Math.floor(Date.now() / 1000),
-                    metadata: {
-                      memoryId,
-                      ts: msg.ts,
-                      channel: 'C0123456',
+            await qdrantBreaker.execute(() =>
+              retry(
+                () => qdrant.upsert(QDRANT_COLLECTION, {
+                  wait: true,
+                  points: [
+                    {
+                      id: crypto.randomUUID(),
+                      vector: textVector,
+                      payload: {
+                        userId,
+                        chunkId: crypto.randomUUID(),
+                        source: 'SLACK',
+                        url: `slack://message/${msg.ts}`,
+                        title: `Slack Message from ${msg.user || 'Unknown'}`,
+                        content: msg.text,
+                        timestamp: Math.floor(Date.now() / 1000),
+                        metadata: {
+                          memoryId,
+                          ts: msg.ts,
+                          channel: 'C0123456',
+                        },
+                      },
                     },
-                  },
-                },
-              ],
-            });
+                  ],
+                }),
+                { attempts: 3, delay: 1000, backoff: 'exponential' }
+              )
+            );
           }
 
           const nextCursor = data.response_metadata?.next_cursor || null;
@@ -112,18 +133,27 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
         const token = integration.accessToken;
         if (!token) continue;
 
-        const response = await fetch('https://api.notion.com/v1/search', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Notion-Version': '2022-06-28',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            filter: { property: 'object', value: 'page' },
-            page_size: 5,
-          }),
-        });
+        const response = await notionBreaker.execute(() =>
+          retry(
+            async () => {
+              const res = await fetch('https://api.notion.com/v1/search', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Notion-Version': '2022-06-28',
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  filter: { property: 'object', value: 'page' },
+                  page_size: 5,
+                }),
+              });
+              if (!res.ok) throw new Error(`Notion API error: ${res.status}`);
+              return res;
+            },
+            { attempts: 3, delay: 1000, backoff: 'exponential' }
+          )
+        );
 
         const data = await response.json();
         if (Array.isArray(data.results)) {
@@ -135,28 +165,33 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
             const textVector = await embedText(pageContent);
             const memoryId = crypto.randomUUID();
 
-            await qdrant.upsert(QDRANT_COLLECTION, {
-              wait: true,
-              points: [
-                {
-                  id: crypto.randomUUID(),
-                  vector: textVector,
-                  payload: {
-                    userId,
-                    chunkId: crypto.randomUUID(),
-                    source: 'NOTION',
-                    url: pageUrl,
-                    title: pageTitle,
-                    content: pageContent,
-                    timestamp: Math.floor(Date.now() / 1000),
-                    metadata: {
-                      memoryId,
-                      notionId: page.id,
+            await qdrantBreaker.execute(() =>
+              retry(
+                () => qdrant.upsert(QDRANT_COLLECTION, {
+                  wait: true,
+                  points: [
+                    {
+                      id: crypto.randomUUID(),
+                      vector: textVector,
+                      payload: {
+                        userId,
+                        chunkId: crypto.randomUUID(),
+                        source: 'NOTION',
+                        url: pageUrl,
+                        title: pageTitle,
+                        content: pageContent,
+                        timestamp: Math.floor(Date.now() / 1000),
+                        metadata: {
+                          memoryId,
+                          notionId: page.id,
+                        },
+                      },
                     },
-                  },
-                },
-              ],
-            });
+                  ],
+                }),
+                { attempts: 3, delay: 1000, backoff: 'exponential' }
+              )
+            );
           }
           await prisma.integration.update({
             where: { id: integration.id },

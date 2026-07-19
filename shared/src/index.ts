@@ -10,3 +10,5 @@ export * from './loops/evaluation';
 export * from './loops/multiAgent';
 export * from './loops/dreaming';
 export * from './lib/logger';
+export * from './lib/circuitBreaker';
+export * from './lib/utils';

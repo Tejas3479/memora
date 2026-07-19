@@ -1,5 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../../config.js';
+import { retry } from '../../lib/utils.js';
+import { geminiBreaker } from '../../lib/circuitBreaker.js';
 
 export interface EnhancedNote {
   cleanedContent: string;
@@ -51,7 +53,12 @@ Format the output strictly as a JSON object matching this TypeScript interface:
   summary: string;        // One-sentence summary of the note
 }`;
 
-      const response = await model.generateContent(prompt);
+      const response = await geminiBreaker.execute(() =>
+        retry(
+          () => model.generateContent(prompt),
+          { attempts: 3, delay: 1000, backoff: 'exponential' }
+        )
+      );
       const text = response.response.text();
       
       // Clean JSON markers if returned
