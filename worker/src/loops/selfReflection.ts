@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config.js';
-import { SelfReflectionInput, SelfReflectionOutput } from '@memora/shared';
+import { SelfReflectionInput, SelfReflectionOutput, createLogger } from '@memora/shared';
+
+const logger = createLogger('SelfReflectionLoop');
 
 export class SelfReflectionLoop {
   private ai: GoogleGenerativeAI | null = null;
@@ -48,7 +50,7 @@ Identify patterns, gaps in knowledge, and suggestions. Return a JSON matching th
       const end = text.lastIndexOf('}') + 1;
       return JSON.parse(text.slice(start, end)) as SelfReflectionOutput;
     } catch (err) {
-      console.error('[SelfReflectionLoop] Error during reflection execution:', err);
+      logger.error('Error during reflection execution', err);
       return {
         insights: [],
         qualityScore: 0.5,

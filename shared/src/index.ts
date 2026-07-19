@@ -9,3 +9,4 @@ export * from './loops/consolidation';
 export * from './loops/evaluation';
 export * from './loops/multiAgent';
 export * from './loops/dreaming';
+export * from './lib/logger';

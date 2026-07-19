@@ -2,6 +2,7 @@ import { Job } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import crypto from 'crypto';
+import { createLogger } from '@memora/shared';
 
 const prisma = new PrismaClient();
 const qdrant = new QdrantClient({
@@ -9,6 +10,7 @@ const qdrant = new QdrantClient({
   checkCompatibility: false,
 });
 const QDRANT_COLLECTION = 'memories';
+const logger = createLogger('IntegrationPoll');
 
 async function embedText(text: string): Promise<number[]> {
   const voyageKey = process.env.VOYAGE_API_KEY;
@@ -39,7 +41,7 @@ async function embedText(text: string): Promise<number[]> {
     const body = await res.json();
     return body.data[0].embedding;
   } catch (err) {
-    console.warn('[Sync Worker] Voyage fetch failed, using fallback vector:', err);
+    logger.warn('Voyage fetch failed, using fallback vector', err);
     const vec = new Array(size).fill(0).map(() => Math.random());
     const mag = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0)) || 1;
     return vec.map((v) => v / mag);
@@ -51,7 +53,7 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
   let syncCount = 0;
 
   for (const integration of integrations) {
-    console.log(`[Worker Sync] Syncing integration ${integration.provider} for user ${integration.userId}`);
+    logger.info(`Syncing integration ${integration.provider} for user ${integration.userId}`);
     const userId = integration.userId;
 
     try {
@@ -170,7 +172,7 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
         syncCount++;
       }
     } catch (err) {
-      console.error(`[Worker Sync] Failed to sync integration ${integration.id}:`, err);
+      logger.error(`Failed to sync integration ${integration.id}`, err);
     }
   }
 

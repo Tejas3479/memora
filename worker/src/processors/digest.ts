@@ -1,5 +1,5 @@
 import { Job } from 'bullmq';
-import { WeeklyDigestPayload, WeeklyDigestResult } from '@memora/shared';
+import { WeeklyDigestPayload, WeeklyDigestResult, createLogger } from '@memora/shared';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { QdrantClient } from '@qdrant/js-client-rest';
 
@@ -7,6 +7,7 @@ const qdrant = new QdrantClient({
   url: process.env.QDRANT_URL || 'http://localhost:6333',
   checkCompatibility: false,
 });
+const logger = createLogger('DigestProcessor');
 
 export async function digestProcessor(job: Job<WeeklyDigestPayload>): Promise<WeeklyDigestResult> {
   const { userId, weekStart, weekEnd } = job.data;
@@ -21,7 +22,7 @@ export async function digestProcessor(job: Job<WeeklyDigestPayload>): Promise<We
     limit: 100,
   });
 
-  console.log(`[Digest Processor] Compiling weekly summary report for ${userId} across ${qRes.points.length} memory nodes.`);
+  logger.info(`Compiling weekly summary report for ${userId} across ${qRes.points.length} memory nodes.`);
 
   return {
     memoriesCount: qRes.points.length,

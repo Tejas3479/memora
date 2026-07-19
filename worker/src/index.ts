@@ -5,6 +5,7 @@ import {
   CALENDAR_POLL_QUEUE,
   WEEKLY_DIGEST_QUEUE,
   AUTOMATION_RUNNER_QUEUE,
+  createLogger,
 } from '@memora/shared';
 
 // Import local processors
@@ -15,6 +16,7 @@ import { loopRunnerProcessor } from './processors/loopRunner.js';
 import { integrationPollProcessor } from './processors/integrationPoll.js';
 
 const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+const logger = createLogger('WorkerMain');
 
 const wAutomation = new Worker(AUTOMATION_RUNNER_QUEUE, automationProcessor, { connection });
 const wCalendar = new Worker(CALENDAR_POLL_QUEUE, calendarPollProcessor, { connection });
@@ -22,20 +24,20 @@ const wDigest = new Worker(WEEKLY_DIGEST_QUEUE, digestProcessor, { connection })
 const wIntegrations = new Worker('integration-poll', integrationPollProcessor, { connection });
 const wLoops = new Worker('loop-runner', loopRunnerProcessor, { connection });
 
-console.log('[Worker] Memora Background Workers successfully wired and active');
+logger.info('Memora Background Workers successfully wired and active');
 
-wAutomation.on('completed', (job) => console.log(`[Job Completed] Automation rule ran: ${job.id}`));
-wAutomation.on('failed', (job, err) => console.error(`[Job Failed] Automation: ${job?.id}. Error:`, err));
+wAutomation.on('completed', (job) => logger.info(`Job Completed - Automation rule ran: ${job.id}`));
+wAutomation.on('failed', (job, err) => logger.error(`Job Failed - Automation: ${job?.id}`, err));
 
-wCalendar.on('completed', (job) => console.log(`[Job Completed] Calendar sync: ${job.id}`));
-wCalendar.on('failed', (job, err) => console.error(`[Job Failed] Calendar: ${job?.id}. Error:`, err));
+wCalendar.on('completed', (job) => logger.info(`Job Completed - Calendar sync: ${job.id}`));
+wCalendar.on('failed', (job, err) => logger.error(`Job Failed - Calendar: ${job?.id}`, err));
 
-wDigest.on('completed', (job) => console.log(`[Job Completed] Weekly digest built: ${job.id}`));
-wDigest.on('failed', (job, err) => console.error(`[Job Failed] Digest: ${job?.id}. Error:`, err));
+wDigest.on('completed', (job) => logger.info(`Job Completed - Weekly digest built: ${job.id}`));
+wDigest.on('failed', (job, err) => logger.error(`Job Failed - Digest: ${job?.id}`, err));
 
 // Graceful Shut-Down handlers
 const shutdown = async () => {
-  console.log('[Worker Shutdown] Shutting down workers...');
+  logger.info('Shutting down workers...');
   await Promise.all([
     wAutomation.close(),
     wCalendar.close(),

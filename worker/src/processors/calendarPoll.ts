@@ -1,8 +1,9 @@
 import { Job } from 'bullmq';
-import { CalendarPollPayload, CalendarPollResult } from '@memora/shared';
+import { CalendarPollPayload, CalendarPollResult, createLogger } from '@memora/shared';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+const logger = createLogger('CalendarPoll');
 
 export async function calendarPollProcessor(job: Job<CalendarPollPayload>): Promise<CalendarPollResult> {
   const { userId, integrationId } = job.data;
@@ -14,7 +15,7 @@ export async function calendarPollProcessor(job: Job<CalendarPollPayload>): Prom
   }
 
   // Under development, mock parsing 5 new Google calendar items
-  console.log(`[GoogleCalendarSync] Processing calendar events for user ${userId}`);
+  logger.info(`Processing calendar events for user ${userId}`);
 
   return {
     eventsProcessed: 5,
