@@ -41,6 +41,7 @@
     "ws": "^8.18.0",
     "@huggingface/transformers": "^3.3.3",
     "zod": "^3.24.1",
+    "@sentry/node": "^8.20.0",
     "@memora/shared": "workspace:*"
   },
   "devDependencies": {

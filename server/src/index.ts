@@ -5,11 +5,17 @@ import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import multipart from '@fastify/multipart';
 import { Redis } from 'ioredis';
+import { v4 as uuidv4 } from 'uuid';
 import { config } from './config.js';
 import { errorHandler } from './lib/errors.js';
 import { registerWebSocket } from './websocket.js';
 import { QdrantService } from './services/ai/qdrant.js';
 import { setupRecurringJobs } from './jobs/index.js';
+import { initObservability } from './lib/observability.js';
+import prisma from './prisma.js';
+
+// Start Sentry/APM observability
+initObservability();
 
 const redisClient = new Redis(config.redis.url);
 
@@ -44,6 +50,13 @@ const app = Fastify({
       target: 'pino-pretty',
     },
   } : true,
+  genReqId: (req) => (req.headers['x-correlation-id'] as string) || (req.headers['x-request-id'] as string) || uuidv4(),
+});
+
+// Set correlation ID header in reply
+app.addHook('onRequest', (request, reply, done) => {
+  reply.header('x-correlation-id', request.id);
+  done();
 });
 
 // Register Plugins
@@ -71,8 +84,39 @@ registerWebSocket(app);
 app.setErrorHandler(errorHandler);
 
 // Health route
-app.get('/health', async () => {
-  return { status: 'OK', timestamp: new Date().toISOString() };
+app.get('/health', async (request, reply) => {
+  const healthInfo = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    services: {
+      database: 'DOWN',
+      redis: 'DOWN',
+    },
+  };
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    healthInfo.services.database = 'UP';
+  } catch (err) {
+    app.log.error(err, 'Healthcheck DB error');
+    healthInfo.status = 'DEGRADED';
+  }
+
+  try {
+    await redisClient.ping();
+    healthInfo.services.redis = 'UP';
+  } catch (err) {
+    app.log.error(err, 'Healthcheck Redis error');
+    healthInfo.status = 'DEGRADED';
+  }
+
+  if (healthInfo.status === 'DEGRADED') {
+    reply.status(503);
+  }
+
+  return healthInfo;
 });
 
 // Register API Routes

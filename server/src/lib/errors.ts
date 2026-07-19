@@ -1,4 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
+import { reportError } from './observability.js';
 
 export class AppError extends Error {
   constructor(
@@ -50,6 +51,16 @@ export class InternalError extends AppError {
 
 export function errorHandler(error: any, request: FastifyRequest, reply: FastifyReply) {
   request.log.error(error);
+
+  // Report 500 or unexpected exceptions to external APM
+  const isUnexpected = !(error instanceof AppError) || error.statusCode >= 500;
+  if (isUnexpected) {
+    reportError(error, {
+      requestId: request.id,
+      url: request.url,
+      method: request.method,
+    });
+  }
 
   if (error instanceof AppError) {
     return reply.status(error.statusCode).send({
