@@ -1,0 +1,38 @@
+name: ✨ Feature Request
+description: Suggest an idea or feature enhancement for Memora.
+title: "[FEAT]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for suggesting a feature for Memora!
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see implemented.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Options Considered
+      description: Describe any alternative solutions or features you've considered.
+  - type: dropdown
+    id: package
+    attributes:
+      label: Primary Target Area
+      options:
+        - Server (@memora/server)
+        - Worker (@memora/worker)
+        - Client Dashboard (@memora/client)
+        - Browser Extension (@memora/extension)
+        - Shared Core (@memora/shared)
+        - Integrations (Notion, Slack, Google Drive, etc.)

@@ -1,0 +1,58 @@
+name: 🐛 Bug Report
+description: Create a report to help us reproduce and fix a bug in Memora.
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for taking the time to report a bug! Please fill out as much information as possible.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe what happened...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Affected Workspace / Component
+      options:
+        - Server (@memora/server)
+        - Worker (@memora/worker)
+        - Client Dashboard (@memora/client)
+        - Browser Extension (@memora/extension)
+        - Shared Core (@memora/shared)
+        - Infrastructure / Docker
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs or Stack Trace
+      description: Paste any relevant server console logs or browser devtools console errors.
+      render: shell
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Info
+      description: OS version, Node.js version, Browser version, etc.
+      placeholder: "OS: Windows 11 / Node: v20.11.0 / Chrome: 122"
