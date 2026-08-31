@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (response.ok) {
         const body = await response.json();
-        renderMemories(body.memories || []);
+        renderMemories(body.memories || [], body.actions || []);
       } else {
         memoriesList!.innerHTML = '<div style="font-size:11px;color:#8888a0;text-align:center;">No context found.</div>';
       }
@@ -75,22 +75,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const renderMemories = (mems: any[]) => {
-    if (mems.length === 0) {
-      memoriesList!.innerHTML = '<div style="font-size:11px;color:#8888a0;text-align:center;padding:12px 0;">No contextual memories found for this page.</div>';
-      return;
+  const renderMemories = (mems: any[], actions: any[] = []) => {
+    let html = '';
+
+    if (actions.length > 0) {
+      html += `
+        <div style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 10px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.05em;">Suggested Actions</div>
+          ${actions.map((act) => `
+            <div class="card" style="padding: 8px 10px; border-color: rgba(124, 58, 237, 0.3); background: rgba(124, 58, 237, 0.05);">
+              <div style="font-size: 11px; font-weight: 600; color: #e4e4ed;">${escapeHtml(act.description)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
     }
 
-    memoriesList!.innerHTML = mems
-      .map(
-        (m) => `
-      <div class="card">
-        <div class="card-title">${escapeHtml(m.title)}</div>
-        <div class="card-meta">${m.source} • ${new Date(m.timestamp * 1000).toLocaleDateString()}</div>
-      </div>
-    `,
-      )
-      .join('');
+    if (mems.length === 0) {
+      html += '<div style="font-size:11px;color:#8888a0;text-align:center;padding:12px 0;">No contextual memories found for this page.</div>';
+    } else {
+      html += mems
+        .map(
+          (m) => `
+        <div class="card">
+          <div class="card-title">${escapeHtml(m.title)}</div>
+          <div class="card-meta">${m.source} • ${new Date((m.timestamp || 0) * 1000).toLocaleDateString()}</div>
+        </div>
+      `,
+        )
+        .join('');
+    }
+
+    memoriesList!.innerHTML = html;
   };
 
   // 3. Summarization Trigger

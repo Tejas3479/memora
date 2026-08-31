@@ -42,9 +42,16 @@ export async function processQueue(
   const keptItems: QueueItem[] = [];
 
   for (const item of queue) {
-    // 3 max attempts limit
-    if (item.attempts >= 3) {
-      console.warn(`[Offline Queue] Discarding item ${item.id} after 3 failed attempts.`);
+    // 5 max attempts limit
+    if (item.attempts >= 5) {
+      console.warn(`[Offline Queue] Discarding item ${item.id} after 5 failed attempts.`);
+      continue;
+    }
+
+    // Exponential backoff check: 2^attempts * 1000ms (max 5 minutes)
+    const backoffDelay = Math.min(Math.pow(2, item.attempts) * 1000, 300000);
+    if (item.attempts > 0 && Date.now() - item.lastAttempt < backoffDelay) {
+      keptItems.push(item);
       continue;
     }
 

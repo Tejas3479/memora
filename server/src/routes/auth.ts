@@ -58,6 +58,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         createdAt: user.createdAt,
       },
       accessToken,
+      refreshToken,
     });
   });
 
@@ -105,11 +106,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
         plan: user.plan,
       },
       accessToken,
+      refreshToken,
     };
   });
 
   fastify.post('/auth/refresh', async (request, reply) => {
-    const token = request.cookies.refreshToken;
+    const token = request.cookies.refreshToken || (request.body as any)?.refreshToken;
     if (!token) {
       throw new UnauthorizedError('Refresh token is missing');
     }
@@ -130,7 +132,20 @@ export default async function authRoutes(fastify: FastifyInstance) {
         { algorithm: 'RS256', expiresIn: config.jwt.accessExpiresIn } as SignOptions
       );
 
-      return { accessToken };
+      const newRefreshToken = jwt.sign(
+        { userId: user.id },
+        config.jwt.privateKey as Secret,
+        { algorithm: 'RS256', expiresIn: config.jwt.refreshExpiresIn } as SignOptions
+      );
+
+      reply.setCookie('refreshToken', newRefreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        path: '/auth/refresh',
+      });
+
+      return { accessToken, refreshToken: newRefreshToken };
     } catch (err) {
       throw new UnauthorizedError('Invalid refresh token');
     }

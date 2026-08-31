@@ -15,6 +15,17 @@ export default async function highlightsRoutes(fastify: FastifyInstance) {
 
     const { url, text, note, color, memoryId } = result.data;
 
+    let resolvedMemoryId = memoryId;
+    if (!resolvedMemoryId && url) {
+      const match = await prisma.memory.findFirst({
+        where: { userId, url },
+        select: { id: true },
+      });
+      if (match) {
+        resolvedMemoryId = match.id;
+      }
+    }
+
     const highlight = await prisma.highlight.create({
       data: {
         userId,
@@ -22,7 +33,12 @@ export default async function highlightsRoutes(fastify: FastifyInstance) {
         text,
         note,
         color,
-        memoryId,
+        memoryId: resolvedMemoryId,
+      },
+      include: {
+        memory: {
+          select: { id: true, title: true },
+        },
       },
     });
 
@@ -31,16 +47,18 @@ export default async function highlightsRoutes(fastify: FastifyInstance) {
 
   fastify.get('/api/highlights', { preHandler: authMiddleware }, async (request) => {
     const userId = request.user!.userId;
-    const { url } = request.query as any;
+    const { url, memoryId } = request.query as any;
 
-    if (!url) {
-      throw new Error('Query parameter "url" is required');
-    }
+    const where: any = { userId };
+    if (url) where.url = url;
+    if (memoryId) where.memoryId = memoryId;
 
     const highlights = await prisma.highlight.findMany({
-      where: {
-        userId,
-        url,
+      where,
+      include: {
+        memory: {
+          select: { id: true, title: true },
+        },
       },
       orderBy: {
         createdAt: 'asc',

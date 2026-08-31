@@ -93,15 +93,23 @@ async function handleMessage(message: MessagePayload, sender: chrome.runtime.Mes
       return runQueueSync();
     case MessageType.GET_STATUS: {
       const qLen = await getQueueLength();
-      const credentials = await chrome.storage.local.get(['jwt_token']);
+      const credentials = await chrome.storage.local.get(['jwt_token', 'refresh_token']);
       return {
         queueLength: qLen,
         isAuthenticated: !!credentials.jwt_token,
       };
     }
-    case MessageType.SET_TOKEN:
-      await chrome.storage.local.set({ jwt_token: message.payload });
+    case MessageType.SET_TOKEN: {
+      if (typeof message.payload === 'object' && message.payload !== null) {
+        await chrome.storage.local.set({
+          jwt_token: message.payload.accessToken || message.payload.token,
+          ...(message.payload.refreshToken ? { refresh_token: message.payload.refreshToken } : {}),
+        });
+      } else {
+        await chrome.storage.local.set({ jwt_token: message.payload });
+      }
       return { success: true };
+    }
     case MessageType.GET_CONFIG:
       return chrome.storage.local.get(['autoCaptureEnabled', 'blockedSites']);
     case MessageType.TOGGLE_AUTOCAPTURE: {
@@ -121,6 +129,69 @@ async function handleMessage(message: MessagePayload, sender: chrome.runtime.Mes
   }
 }
 
+/**
+ * Executes a refresh token request if access token expires (401).
+ */
+async function refreshToken(): Promise<string | null> {
+  const credentials = await chrome.storage.local.get(['refresh_token']);
+  const currentRefreshToken = credentials.refresh_token;
+  if (!currentRefreshToken) return null;
+
+  try {
+    const res = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: currentRefreshToken }),
+    });
+
+    if (!res.ok) {
+      console.warn('[Background] Refresh token rejected or expired.');
+      await chrome.storage.local.remove(['jwt_token', 'refresh_token']);
+      return null;
+    }
+
+    const data = await res.json();
+    if (data.accessToken) {
+      await chrome.storage.local.set({
+        jwt_token: data.accessToken,
+        ...(data.refreshToken ? { refresh_token: data.refreshToken } : {}),
+      });
+      return data.accessToken;
+    }
+    return null;
+  } catch (err) {
+    console.warn('[Background] Token refresh request error:', err);
+    return null;
+  }
+}
+
+/**
+ * Resilient authenticated fetch with automatic 401 token refresh.
+ */
+async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  const credentials = await chrome.storage.local.get(['jwt_token']);
+  const token = credentials.jwt_token;
+
+  const headers = new Headers(options.headers || {});
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  let response = await fetch(url, { ...options, headers });
+
+  if (response.status === 401) {
+    console.log('[Background] 401 Unauthorized detected. Attempting token refresh...');
+    const newToken = await refreshToken();
+    if (newToken) {
+      const retryHeaders = new Headers(options.headers || {});
+      retryHeaders.set('Authorization', `Bearer ${newToken}`);
+      response = await fetch(url, { ...options, headers: retryHeaders });
+    }
+  }
+
+  return response;
+}
+
 async function saveMemory(payload: any) {
   const credentials = await chrome.storage.local.get(['jwt_token']);
   const token = credentials.jwt_token;
@@ -133,11 +204,10 @@ async function saveMemory(payload: any) {
   }
 
   try {
-    const response = await fetch(`${API_URL}/api/ingest`, {
+    const response = await fetchWithAuth(`${API_URL}/api/ingest`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(payload),
     });
@@ -165,15 +235,18 @@ async function runQueueSync() {
   if (!token) return { status: 'unauthorized_no_token' };
 
   const res = await processQueue(async (payload) => {
-    const response = await fetch(`${API_URL}/api/ingest`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    });
-    return response.ok;
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/ingest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      return response.ok;
+    } catch (err) {
+      return false;
+    }
   });
 
   await updateBadge();
@@ -188,16 +261,10 @@ async function updateBadge() {
 }
 
 async function summarizePage(payload: any) {
-  const credentials = await chrome.storage.local.get(['jwt_token']);
-  const token = credentials.jwt_token;
-
-  if (!token) throw new Error('Missing authentication token. Please log in first.');
-
-  const response = await fetch(`${API_URL}/api/summarize`, {
+  const response = await fetchWithAuth(`${API_URL}/api/summarize`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
   });
@@ -210,16 +277,10 @@ async function summarizePage(payload: any) {
 }
 
 async function saveHighlight(payload: any) {
-  const credentials = await chrome.storage.local.get(['jwt_token']);
-  const token = credentials.jwt_token;
-
-  if (!token) throw new Error('Missing authentication token.');
-
-  const response = await fetch(`${API_URL}/api/highlights`, {
+  const response = await fetchWithAuth(`${API_URL}/api/highlights`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
   });
@@ -232,36 +293,20 @@ async function saveHighlight(payload: any) {
 }
 
 async function getHighlights(payload: { url: string }) {
-  const credentials = await chrome.storage.local.get(['jwt_token']);
-  const token = credentials.jwt_token;
-
-  if (!token) return [];
-
-  const response = await fetch(`${API_URL}/api/highlights?url=${encodeURIComponent(payload.url)}`, {
+  const response = await fetchWithAuth(`${API_URL}/api/highlights?url=${encodeURIComponent(payload.url)}`, {
     method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
   });
 
   if (!response.ok) {
-    throw new Error(`Highlight fetch error: ${response.statusText}`);
+    return [];
   }
 
   return response.json();
 }
 
 async function deleteHighlight(payload: { id: string }) {
-  const credentials = await chrome.storage.local.get(['jwt_token']);
-  const token = credentials.jwt_token;
-
-  if (!token) throw new Error('Missing authentication token.');
-
-  const response = await fetch(`${API_URL}/api/highlights/${payload.id}`, {
+  const response = await fetchWithAuth(`${API_URL}/api/highlights/${payload.id}`, {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
   });
 
   if (!response.ok) {
