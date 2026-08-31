@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../../api/client.js';
+import React, { useState } from 'react';
+import { useIntegrationsQuery, useDisconnectIntegrationMutation } from '../../hooks/useQueries.js';
 import { useUiStore } from '../../store/uiStore.js';
 import { Globe, BookOpen, MessageSquare, Github, Eye, Sparkles, Sliders } from 'lucide-react';
 
 export default function SettingsPage() {
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'integrations' | 'preferences' | 'billing'>('profile');
-  const [integrations, setIntegrations] = useState<any[]>([]);
+  const { data: integrations = [] } = useIntegrationsQuery();
+  const disconnectMutation = useDisconnectIntegrationMutation();
 
   const {
     adhdFocusMode,
@@ -16,20 +17,13 @@ export default function SettingsPage() {
     toggleColorBlindMode
   } = useUiStore();
 
-  useEffect(() => {
-    if (activeSubTab === 'integrations') {
-      api.get('/api/integrations').then(setIntegrations).catch(console.error);
-    }
-  }, [activeSubTab]);
-
   const handleConnect = (provider: string) => {
     window.location.href = `/auth/${provider}`;
   };
 
   const handleDisconnect = async (id: string) => {
     try {
-      await api.delete(`/api/integrations/${id}`);
-      setIntegrations(integrations.filter((i) => i.id !== id));
+      await disconnectMutation.mutateAsync(id);
     } catch (err) {
       console.error(err);
     }

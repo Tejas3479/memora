@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@memora/shared": "workspace:*",
+    "@tanstack/react-query": "^5.102.8",
     "lenis": "^1.3.25",
     "lucide-react": "^0.475.0",
     "react": "^19.0.0",
