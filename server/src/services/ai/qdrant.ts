@@ -126,6 +126,14 @@ export class QdrantService {
     });
   }
 
+  public async setPayload(pointIds: string[], payload: Record<string, any>): Promise<void> {
+    await this.ensureCollection();
+    await this.client.setPayload(QDRANT_COLLECTION, {
+      points: pointIds,
+      payload,
+    });
+  }
+
   public async hybridSearch(params: HybridSearchParams): Promise<SearchResult[]> {
     const filterConditions: any[] = [
       {

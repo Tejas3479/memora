@@ -84,11 +84,17 @@ User Query: ${query}
 Synthesized Cited Answer:`;
   }
 
-  public async *synthesizeStream(query: string, chunks: SearchResult[]): AsyncGenerator<string, void, unknown> {
+  public async *synthesizeStream(
+    query: string,
+    chunks: SearchResult[],
+    signal?: AbortSignal,
+  ): AsyncGenerator<string, void, unknown> {
     if (chunks.length === 0) {
       yield "I couldn't find any memories related to your query.";
       return;
     }
+
+    if (signal?.aborted) return;
 
     if (!this.ai) {
       const fallback = this.fallbackSynthesis(query, chunks);
@@ -107,12 +113,20 @@ Synthesized Cited Answer:`;
         )
       );
       for await (const chunk of resultStream.stream) {
+        if (signal?.aborted) {
+          console.log('[SynthesisService] Streaming aborted by client disconnect');
+          break;
+        }
         const text = chunk.text();
         if (text) {
           yield text;
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (signal?.aborted || err?.name === 'AbortError') {
+        console.log('[SynthesisService] Streaming aborted cleanly');
+        return;
+      }
       console.error('[SynthesisService] Error during synthesis stream:', err);
       const fallback = this.fallbackSynthesis(query, chunks);
       yield fallback.answer;

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client.js';
+import { useGraphQuery } from '../../hooks/useQueries.js';
 import { Network, Layers, Milestone, Grid, Users, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
 interface GraphNode {
@@ -21,10 +22,9 @@ interface GraphEdge {
 
 export default function GraphPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { data: graphData, isLoading: isGraphLoading } = useGraphQuery();
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState(0);
   const [layoutPreset, setLayoutPreset] = useState<'graph' | 'explorer' | 'timeline' | 'board' | 'people'>('graph');
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
 
@@ -37,41 +37,26 @@ export default function GraphPage() {
   const isPanningRef = useRef(false);
   const startPanRef = useRef({ x: 0, y: 0 });
 
-  // Fetch nodes & edges
+  // Initialize nodes & edges when query data arrives
   useEffect(() => {
-    const loader = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(loader);
-          setLoading(false);
-          return 100;
-        }
-        return prev + 25;
-      });
-    }, 120);
+    if (!graphData) return;
 
-    api.get('/api/graph')
-      .then((res) => {
-        const rawNodes = res.graph?.nodes || [];
-        const rawEdges = res.graph?.edges || [];
+    const rawNodes = graphData.nodes || [];
+    const rawEdges = graphData.edges || [];
 
-        // Initialize 2D coordinates for physics engine
-        const initializedNodes: GraphNode[] = rawNodes.map((node: any) => ({
-          ...node,
-          x: Math.random() * 400 - 200,
-          y: Math.random() * 400 - 200,
-          vx: 0,
-          vy: 0,
-          radius: node.type === 'MEMORY' ? 12 : 8,
-        }));
+    // Initialize 2D coordinates for physics engine
+    const initializedNodes: GraphNode[] = rawNodes.map((node: any) => ({
+      ...node,
+      x: Math.random() * 400 - 200,
+      y: Math.random() * 400 - 200,
+      vx: 0,
+      vy: 0,
+      radius: node.type === 'MEMORY' ? 12 : 8,
+    }));
 
-        setNodes(initializedNodes);
-        setEdges(rawEdges);
-      })
-      .catch(console.error);
-
-    return () => clearInterval(loader);
-  }, []);
+    setNodes(initializedNodes);
+    setEdges(rawEdges);
+  }, [graphData]);
 
   // Preset Layout Adjustments
   useEffect(() => {
@@ -116,7 +101,7 @@ export default function GraphPage() {
 
   // Canvas Drawing & Physics Simulation Loop
   useEffect(() => {
-    if (loading || nodes.length === 0) return;
+    if (isGraphLoading || nodes.length === 0) return;
 
     let animFrame: number;
     const canvas = canvasRef.current;
@@ -254,7 +239,7 @@ export default function GraphPage() {
       cancelAnimationFrame(animFrame);
       window.removeEventListener('resize', resizeCanvas);
     };
-  }, [loading, nodes, edges, zoom, panX, panY, selectedNode]);
+  }, [isGraphLoading, nodes, edges, zoom, panX, panY, selectedNode]);
 
   // Interactivity Handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -360,12 +345,12 @@ export default function GraphPage() {
         </div>
       </div>
 
-      {loading ? (
+      {isGraphLoading ? (
         <div className="flex-1 glass rounded-2xl flex flex-col items-center justify-center p-8 gap-4 select-none">
           <Network className="text-memora-accent animate-spin" size={48} />
           <div className="flex flex-col items-center gap-1">
             <span className="text-xs text-white tracking-widest uppercase font-semibold">Initializing Graph Space</span>
-            <span className="text-2xl font-extrabold text-memora-accent font-mono mt-1">{progress}%</span>
+            <span className="text-xs text-memora-text-muted">Extracting nodes and entity relationships...</span>
           </div>
         </div>
       ) : (

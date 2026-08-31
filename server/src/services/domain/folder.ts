@@ -82,6 +82,14 @@ export class FolderService {
       },
     });
 
+    try {
+      const { QdrantService } = await import('../ai/qdrant.js');
+      const qdrant = new QdrantService();
+      await qdrant.setPayload(memoryIds, { folderId });
+    } catch (err) {
+      console.warn('[FolderService] Could not sync folderId to Qdrant:', err);
+    }
+
     return res.count;
   }
 

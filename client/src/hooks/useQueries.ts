@@ -228,3 +228,18 @@ export function useUserProfileQuery() {
     },
   });
 }
+
+// ─── Knowledge Graph Queries ─────────────────────────────────────────────────
+
+export function useGraphQuery() {
+  return useQuery({
+    queryKey: ['graph'],
+    queryFn: async () => {
+      const res = await api.get('/api/graph');
+      return {
+        nodes: res.graph?.nodes || [],
+        edges: res.graph?.edges || [],
+      };
+    },
+  });
+}

@@ -21,21 +21,34 @@ export default async function searchRoutes(fastify: FastifyInstance) {
     const { query, filters, limit } = result.data;
     const stream = (request.body as any).stream === true;
 
-    // Use agentic search graph if it involves complex queries
-    if (query.toLowerCase().includes('and') || query.toLowerCase().includes('or')) {
-      const graph = new AgenticSearchGraph(qdrant, synthesis);
-      return graph.run({ userId, query, filters });
-    }
-
-    // Standard hybrid search
-    const queryVector = await embedding.embedSingle(query);
-    const results = await qdrant.hybridSearch({
-      userId,
-      vector: queryVector,
-      query,
-      filters,
-      limit,
+    // Set up AbortController for client disconnect handling
+    const abortController = new AbortController();
+    request.raw.on('close', () => {
+      abortController.abort();
     });
+    request.raw.on('aborted', () => {
+      abortController.abort();
+    });
+
+    const isComplex = query.toLowerCase().includes(' and ') || query.toLowerCase().includes(' or ') || query.includes(';') || query.length > 80;
+    let results: any[] = [];
+    let subQueries: string[] = [query];
+
+    if (isComplex) {
+      const graph = new AgenticSearchGraph(qdrant, synthesis);
+      const retrieved = await graph.planAndRetrieve({ userId, query, filters });
+      results = retrieved.results;
+      subQueries = retrieved.subQueries;
+    } else {
+      const queryVector = await embedding.embedSingle(query);
+      results = await qdrant.hybridSearch({
+        userId,
+        vector: queryVector,
+        query,
+        filters,
+        limit,
+      });
+    }
 
     if (stream) {
       reply.raw.writeHead(200, {
@@ -44,20 +57,30 @@ export default async function searchRoutes(fastify: FastifyInstance) {
         'Connection': 'keep-alive',
       });
 
-      // Stream sources first
+      // Stream sub-queries event if decomposed
+      if (subQueries.length > 1) {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'sub_queries', subQueries })}\n\n`);
+      }
+
+      // Stream candidate sources
       reply.raw.write(`data: ${JSON.stringify({ type: 'sources', results })}\n\n`);
 
       try {
-        const streamGenerator = synthesis.synthesizeStream(query, results);
+        const streamGenerator = synthesis.synthesizeStream(query, results, abortController.signal);
         for await (const chunk of streamGenerator) {
+          if (abortController.signal.aborted) break;
           reply.raw.write(`data: ${JSON.stringify({ type: 'token', token: chunk })}\n\n`);
         }
       } catch (err) {
-        console.error('[SearchRoute] Streaming error:', err);
+        if (!abortController.signal.aborted) {
+          console.error('[SearchRoute] Streaming error:', err);
+        }
       }
 
-      reply.raw.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
-      reply.raw.end();
+      if (!abortController.signal.aborted) {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+        reply.raw.end();
+      }
       return;
     }
 
@@ -66,6 +89,7 @@ export default async function searchRoutes(fastify: FastifyInstance) {
     return {
       results,
       synthesizedAnswer: answer,
+      subQueries: subQueries.length > 1 ? subQueries : undefined,
       total: results.length,
       took: 10,
     };
