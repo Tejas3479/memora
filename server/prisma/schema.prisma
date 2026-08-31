@@ -41,7 +41,7 @@ model Memory {
   title       String
   content     String                @db.Text
   source      String                @default("WEB") // "WEB", "DOCUMENT", "AUDIO", "SLACK", "NOTION", "GITHUB", "NOTE", "IMAGE"
-  url         String
+  url         String                @default("")
   metadata    Json                  @default("{}")
   folderId    String?
   folder      Folder?               @relation(fields: [folderId], references: [id], onDelete: SetNull)

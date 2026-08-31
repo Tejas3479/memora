@@ -5,6 +5,7 @@ import {
   CALENDAR_POLL_QUEUE,
   WEEKLY_DIGEST_QUEUE,
   AUTOMATION_RUNNER_QUEUE,
+  LOOP_RUNNER_QUEUE,
   createLogger,
 } from '@memora/shared';
 
@@ -22,7 +23,7 @@ const wAutomation = new Worker(AUTOMATION_RUNNER_QUEUE, automationProcessor, { c
 const wCalendar = new Worker(CALENDAR_POLL_QUEUE, calendarPollProcessor, { connection });
 const wDigest = new Worker(WEEKLY_DIGEST_QUEUE, digestProcessor, { connection });
 const wIntegrations = new Worker('integration-poll', integrationPollProcessor, { connection });
-const wLoops = new Worker('loop-runner', loopRunnerProcessor, { connection });
+const wLoops = new Worker(LOOP_RUNNER_QUEUE, loopRunnerProcessor, { connection });
 
 logger.info('Memora Background Workers successfully wired and active');
 
@@ -34,6 +35,9 @@ wCalendar.on('failed', (job, err) => logger.error(`Job Failed - Calendar: ${job?
 
 wDigest.on('completed', (job) => logger.info(`Job Completed - Weekly digest built: ${job.id}`));
 wDigest.on('failed', (job, err) => logger.error(`Job Failed - Digest: ${job?.id}`, err));
+
+wLoops.on('completed', (job) => logger.info(`Job Completed - Cognitive loop ran: ${job.id}`));
+wLoops.on('failed', (job, err) => logger.error(`Job Failed - Cognitive loop: ${job?.id}`, err));
 
 // Graceful Shut-Down handlers
 const shutdown = async () => {

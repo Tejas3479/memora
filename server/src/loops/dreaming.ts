@@ -2,7 +2,10 @@ import { DreamingInput, DreamingOutput } from '@memora/shared';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config.js';
 import { QdrantService } from '../services/ai/qdrant.js';
+import { EmbeddingService } from '../services/ai/embedding.js';
+import { prisma } from '../prisma.js';
 import { Redis } from 'ioredis';
+import crypto from 'crypto';
 
 function cosineSimilarity(a: number[], b: number[]): number {
   if (!a || !b || a.length !== b.length || a.length === 0) return 0;
@@ -19,31 +22,77 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
 export class DreamingLoop {
   private ai: GoogleGenerativeAI | null = null;
+  private embeddingService: EmbeddingService;
 
   constructor(private qdrantService: QdrantService) {
     if (config.llm.googleApiKey) {
       this.ai = new GoogleGenerativeAI(config.llm.googleApiKey);
     }
+    this.embeddingService = new EmbeddingService();
   }
 
   public async execute(input: DreamingInput): Promise<DreamingOutput> {
     const start = Date.now();
-    const redis = new Redis(config.redis.url);
     const { results } = await this.qdrantService.getTimeline(input.userId, 100, 0, undefined);
     
     const discoveries = await this.discoverConnections(results, input.maxConnections || 5);
 
-    // Save discoveries to Redis cache for fast retrieval in frontend
-    if (discoveries.length > 0) {
+    // Persist discoveries as new Memory entries and in Qdrant
+    for (const discovery of discoveries) {
       try {
-        const cacheKey = `user:${input.userId}:dream_cards`;
-        await redis.set(cacheKey, JSON.stringify(discoveries), 'EX', 86400 * 7); // Cache for 7 days
+        const dreamUrl = `dream://${crypto.randomUUID()}`;
+        const memoryRecord = await prisma.memory.create({
+          data: {
+            userId: input.userId,
+            title: `Dream Insight: ${discovery.type.toUpperCase()}`,
+            content: discovery.description,
+            source: 'DREAM',
+            url: dreamUrl,
+            metadata: {
+              type: discovery.type,
+              connectedMemoryIds: discovery.memoryIds,
+              noveltyScore: discovery.noveltyScore,
+            },
+          },
+        });
+
+        const embedding = await this.embeddingService.embedSingle(discovery.description);
+        await this.qdrantService.upsertMemories([{
+          id: crypto.randomUUID(),
+          vector: embedding,
+          payload: {
+            userId: input.userId,
+            chunkId: crypto.randomUUID(),
+            source: 'DREAM',
+            url: dreamUrl,
+            title: `Dream Insight: ${discovery.type.toUpperCase()}`,
+            content: discovery.description,
+            timestamp: Math.floor(Date.now() / 1000),
+            metadata: {
+              memoryId: memoryRecord.id,
+              connectedMemoryIds: discovery.memoryIds,
+              noveltyScore: discovery.noveltyScore,
+            },
+          },
+        }]);
       } catch (err) {
-        console.warn('[DreamingLoop] Failed to cache dream cards in Redis:', err);
+        console.warn('[DreamingLoop] Failed to persist dream memory:', err);
       }
     }
 
-    await redis.quit();
+    // Cache discoveries in Redis if available
+    try {
+      const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
+      if (!isTest && discoveries.length > 0) {
+        const redis = new Redis(config.redis.url, { lazyConnect: true, enableOfflineQueue: false });
+        redis.on('error', () => {});
+        const cacheKey = `user:${input.userId}:dream_cards`;
+        await redis.set(cacheKey, JSON.stringify(discoveries), 'EX', 86400 * 7);
+        await redis.quit().catch(() => {});
+      }
+    } catch (err) {
+      // Graceful fallback for offline Redis
+    }
 
     return {
       discoveries,
@@ -58,26 +107,35 @@ export class DreamingLoop {
   ): Promise<Array<{ type: 'connection' | 'pattern' | 'insight'; memoryIds: string[]; description: string; noveltyScore: number }>> {
     if (memories.length < 2) return [];
     
+    // Ensure vectors exist for comparison
+    const embeddedMemories = await Promise.all(
+      memories.map(async (m) => {
+        if (m.vector && m.vector.length > 0) return m;
+        const vec = await this.embeddingService.embedSingle(m.content || m.title || '');
+        return { ...m, vector: vec };
+      })
+    );
+
     const connections: Array<{ type: 'connection' | 'pattern' | 'insight'; memoryIds: string[]; description: string; noveltyScore: number }> = [];
     const visited = new Set<string>();
 
-    for (let i = 0; i < memories.length && connections.length < limit; i++) {
-      const a = memories[i];
+    for (let i = 0; i < embeddedMemories.length && connections.length < limit; i++) {
+      const a = embeddedMemories[i];
       if (!a.vector || a.vector.length === 0) continue;
 
-      for (let j = i + 1; j < memories.length && connections.length < limit; j++) {
-        const b = memories[j];
+      for (let j = i + 1; j < embeddedMemories.length && connections.length < limit; j++) {
+        const b = embeddedMemories[j];
         if (!b.vector || b.vector.length === 0) continue;
 
         const similarity = cosineSimilarity(a.vector, b.vector);
 
-        // Find non-identical but semantically related concepts
-        if (similarity > 0.65 && similarity < 0.82) {
+        // Moderate similarity: not identical (not duplicate), but conceptually related
+        if (similarity > 0.50 && similarity < 0.85) {
           const pairKey = [a.id, b.id].sort().join('-');
           if (visited.has(pairKey)) continue;
           visited.add(pairKey);
 
-          let description = `speculative connection between "${a.title}" and "${b.title}"`;
+          let description = `Speculative connection between "${a.title}" and "${b.title}": both explore interconnected ideas.`;
           let type: 'connection' | 'pattern' | 'insight' = 'connection';
 
           if (this.ai) {
@@ -86,7 +144,7 @@ export class DreamingLoop {
               const prompt = `You are a dream association discovery engine. You are analyzing two related memories:\n\nMemory A: ${a.title}\n${a.content}\n\nMemory B: ${b.title}\n${b.content}\n\nProvide a short, 1-2 sentence speculative association or insight card that links these memories. Start directly with the insight.`;
               const response = await model.generateContent([prompt]);
               description = response.response.text().trim() || description;
-              type = similarity > 0.75 ? 'insight' : 'connection';
+              type = similarity > 0.70 ? 'insight' : 'connection';
             } catch (err) {
               console.warn('[Dreaming] Gemini speculation failed:', err);
             }

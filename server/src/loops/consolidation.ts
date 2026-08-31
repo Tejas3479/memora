@@ -49,9 +49,28 @@ export class ConsolidationLoop {
         // Generate cohesive summary
         const summaryText = await this.createSummary(matchingMemories);
         const summaryVector = await this.embeddingService.embedSingle(summaryText);
-        const newMemoryId = crypto.randomUUID();
 
-        // Write back consolidated summary
+        // 1. Create relational Memory in Postgres
+        let relationalMemoryId: string = crypto.randomUUID();
+        try {
+          const { prisma } = await import('../prisma.js');
+          const rec = await prisma.memory.create({
+            data: {
+              userId: input.userId,
+              title: `Consolidated Memory: ${matchingMemories[0].title || 'Synthesized Knowledge'}`,
+              content: summaryText,
+              source: 'DOCUMENT',
+              metadata: {
+                consolidatedFrom: group,
+              },
+            },
+          });
+          relationalMemoryId = rec.id;
+        } catch (err) {
+          console.warn('[ConsolidationLoop] Failed to write Memory to Postgres:', err);
+        }
+
+        // 2. Write back consolidated summary to Qdrant
         await this.qdrantService.upsertMemories([{
           id: crypto.randomUUID(),
           vector: summaryVector,
@@ -59,13 +78,13 @@ export class ConsolidationLoop {
             userId: input.userId,
             chunkId: crypto.randomUUID(),
             source: 'DOCUMENT',
-            url: `consolidation://${newMemoryId}`,
-            title: `Consolidated Memory: ${matchingMemories[0].title}`,
+            url: `consolidation://${relationalMemoryId}`,
+            title: `Consolidated Memory: ${matchingMemories[0].title || 'Synthesized Knowledge'}`,
             content: summaryText,
             timestamp: Math.floor(Date.now() / 1000),
             metadata: {
               consolidatedFrom: group,
-              memoryId: newMemoryId,
+              memoryId: relationalMemoryId,
             },
           },
         }]);

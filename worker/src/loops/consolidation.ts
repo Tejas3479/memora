@@ -2,6 +2,11 @@ import { ConsolidationInput, ConsolidationOutput } from '@memora/shared';
 import { QdrantService } from '../services/qdrant.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config.js';
+import crypto from 'crypto';
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export class ConsolidationLoop {
   private ai: GoogleGenerativeAI | null = null;
@@ -17,10 +22,29 @@ export class ConsolidationLoop {
     const duplicates = await this.findDuplicates(results);
 
     let summariesCreated = 0;
-    if (duplicates.length > 0 && this.ai) {
+    if (duplicates.length > 0) {
       for (const group of duplicates) {
         const matchingMemories = results.filter((r) => group.includes(r.id));
-        await this.createSummary(matchingMemories);
+        const summary = await this.createSummary(matchingMemories);
+        
+        try {
+          const newMemoryId = crypto.randomUUID();
+          await prisma.memory.create({
+            data: {
+              userId: input.userId,
+              title: `Consolidated Memory: ${matchingMemories[0]?.title || 'Synthesized Knowledge'}`,
+              content: summary,
+              source: 'DOCUMENT',
+              url: `consolidation://${newMemoryId}`,
+              metadata: {
+                consolidatedFrom: group,
+              },
+            },
+          });
+        } catch (err) {
+          console.warn('[Worker ConsolidationLoop] Failed to write Memory to Postgres:', err);
+        }
+
         summariesCreated++;
       }
     }

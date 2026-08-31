@@ -13,18 +13,27 @@ const prisma = new PrismaClient();
 const qdrant = new QdrantService();
 
 export async function loopRunnerProcessor(
-  job: Job<{ userId: string; loopType: LoopType; config?: Record<string, any> }>
+  job: Job<{ userId: string; loopType: LoopType; executionId?: string; config?: Record<string, any> }>
 ): Promise<any> {
-  const { userId, loopType, config = {} } = job.data;
+  const { userId, loopType, executionId: existingExecutionId, config = {} } = job.data;
 
-  const execution = await prisma.loopExecution.create({
-    data: {
-      userId,
-      loopType,
-      status: 'RUNNING',
-      input: { config },
-    },
-  });
+  let executionId = existingExecutionId;
+  if (executionId) {
+    await prisma.loopExecution.update({
+      where: { id: executionId },
+      data: { status: 'RUNNING' },
+    });
+  } else {
+    const execution = await prisma.loopExecution.create({
+      data: {
+        userId,
+        loopType,
+        status: 'RUNNING',
+        input: { config },
+      },
+    });
+    executionId = execution.id;
+  }
 
   try {
     let output: any;
@@ -85,7 +94,7 @@ export async function loopRunnerProcessor(
     }
 
     await prisma.loopExecution.update({
-      where: { id: execution.id },
+      where: { id: executionId },
       data: {
         status: 'COMPLETED',
         output: output as any,
@@ -97,7 +106,7 @@ export async function loopRunnerProcessor(
   } catch (err) {
     const errorMsg = (err as Error).message;
     await prisma.loopExecution.update({
-      where: { id: execution.id },
+      where: { id: executionId },
       data: {
         status: 'FAILED',
         error: errorMsg,

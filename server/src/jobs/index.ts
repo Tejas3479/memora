@@ -4,6 +4,7 @@ import {
   CALENDAR_POLL_QUEUE,
   WEEKLY_DIGEST_QUEUE,
   AUTOMATION_RUNNER_QUEUE,
+  LOOP_RUNNER_QUEUE,
   CALENDAR_POLL_OPTIONS,
   WEEKLY_DIGEST_OPTIONS,
 } from '@memora/shared';
@@ -11,12 +12,27 @@ import {
 const queueOptions = {
   connection: {
     url: config.redis.url,
+    lazyConnect: true,
+    maxRetriesPerRequest: null,
+    enableOfflineQueue: false,
   },
 };
 
 export const calendarPollQueue = new Queue(CALENDAR_POLL_QUEUE, queueOptions);
 export const weeklyDigestQueue = new Queue(WEEKLY_DIGEST_QUEUE, queueOptions);
 export const automationRunnerQueue = new Queue(AUTOMATION_RUNNER_QUEUE, queueOptions);
+export const loopRunnerQueue = new Queue(LOOP_RUNNER_QUEUE, queueOptions);
+
+// Prevent unhandled error events on test/offline Redis
+calendarPollQueue.on('error', () => {});
+weeklyDigestQueue.on('error', () => {});
+automationRunnerQueue.on('error', () => {});
+loopRunnerQueue.on('error', () => {});
+
+calendarPollQueue.client.then((c) => c.on('error', () => {})).catch(() => {});
+weeklyDigestQueue.client.then((c) => c.on('error', () => {})).catch(() => {});
+automationRunnerQueue.client.then((c) => c.on('error', () => {})).catch(() => {});
+loopRunnerQueue.client.then((c) => c.on('error', () => {})).catch(() => {});
 
 export async function setupRecurringJobs(): Promise<void> {
   try {

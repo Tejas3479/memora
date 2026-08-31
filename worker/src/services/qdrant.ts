@@ -26,6 +26,7 @@ export class QdrantService {
       limit,
       offset,
       with_payload: true,
+      with_vector: true,
     });
 
     const results = response.points.map((point) => {
@@ -39,6 +40,7 @@ export class QdrantService {
         timestamp: payload.timestamp || 0,
         score: 1.0,
         chunkId: payload.chunkId || '',
+        vector: Array.isArray(point.vector) ? point.vector : undefined,
         metadata: payload.metadata || {},
       };
     });
@@ -47,6 +49,18 @@ export class QdrantService {
       results,
       total: results.length,
     };
+  }
+
+  public async upsertMemories(points: Array<{ id: string; vector: number[]; payload: Record<string, any> }>): Promise<void> {
+    if (points.length === 0) return;
+    await this.client.upsert(QDRANT_COLLECTION, {
+      wait: true,
+      points: points.map((p) => ({
+        id: p.id,
+        vector: p.vector,
+        payload: p.payload,
+      })),
+    });
   }
 }
 export default QdrantService;

@@ -4,6 +4,7 @@ export * from './schemas/index';
 export * from './jobs/calendarPoll';
 export * from './jobs/weeklyDigest';
 export * from './jobs/automationRunner';
+export * from './jobs/loopRunner';
 export * from './loops/selfReflection';
 export * from './loops/consolidation';
 export * from './loops/evaluation';
