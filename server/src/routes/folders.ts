@@ -37,7 +37,20 @@ export default async function foldersRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post('/api/folders/:id/memories', { preHandler: authMiddleware }, async (request) => {
-    // In production, updates Qdrant vector payload.
-    return { success: true };
+    const userId = request.user!.userId;
+    const { id } = request.params as any;
+    const { memoryIds = [] } = request.body as any;
+
+    const folders = new FolderService(prisma);
+    const updatedCount = await folders.addMemories(id, userId, memoryIds);
+    return { success: true, count: updatedCount };
+  });
+
+  fastify.get('/api/folders/:id/memories', { preHandler: authMiddleware }, async (request) => {
+    const userId = request.user!.userId;
+    const { id } = request.params as any;
+
+    const folders = new FolderService(prisma);
+    return folders.getFolderMemories(id, userId);
   });
 }

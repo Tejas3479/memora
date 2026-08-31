@@ -29,7 +29,6 @@ export default async function summarizeRoutes(fastify: FastifyInstance) {
 
     const { url, title, content } = parseResult.data;
     const timestamp = Math.floor(Date.now() / 1000);
-    const memoryId = crypto.randomUUID();
 
     let summaryData = {
       tldr: `Summary of page: ${title}`,
@@ -78,14 +77,35 @@ Format the output strictly as a JSON object matching this structure:
       }
     }
 
-    // Index the summary in Qdrant so it is searchable
+    const prismaInstance = (fastify as any).prisma || (await import('../prisma.js')).prisma;
+
+    // Index the summary in PostgreSQL
     const summaryText = `${summaryData.tldr}\n\nKey Takeaways:\n${summaryData.keyPoints.map((p) => `- ${p}`).join('\n')}`;
+
+    const memory = await prismaInstance.memory.create({
+      data: {
+        userId,
+        title: `Summary: ${title}`,
+        content: summaryText,
+        source: 'WEB',
+        url,
+        metadata: {
+          isSummary: true,
+          originalTitle: title,
+          summaryJson: summaryData,
+          tags: summaryData.tags,
+        },
+      },
+    });
+    const memoryId = memory.id;
+
     const chunks = chunker.chunk(summaryText, {
       title: `Summary: ${title}`,
       url,
       source: MemorySource.WEB,
       timestamp,
       userId,
+      memoryId,
     });
 
     const textPieces = chunks.map((c) => c.text);

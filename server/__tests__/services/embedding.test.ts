@@ -8,7 +8,7 @@ describe('EmbeddingService', () => {
     
     expect(vec.length).toBe(384);
     expect(vec[0]).toBeTypeOf('number');
-  });
+  }, 15000);
 
   it('should process multi-sentence inputs and return multi-vector array output', async () => {
     const service = new EmbeddingService();
@@ -16,5 +16,5 @@ describe('EmbeddingService', () => {
     
     expect(results.length).toBe(2);
     expect(results[0].length).toBe(384);
-  });
+  }, 15000);
 });

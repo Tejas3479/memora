@@ -12,6 +12,7 @@ model User {
   email           String             @unique
   passwordHash    String
   name            String
+  avatarUrl       String?
   googleId        String?            @unique
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
@@ -28,8 +29,37 @@ model User {
   loopExecutions  LoopExecution[]
   highlights      Highlight[]
   pushSubs        PushSubscription[]
+  memories        Memory[]
 
   @@index([email])
+}
+
+model Memory {
+  id          String                @id @default(cuid())
+  userId      String
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  content     String                @db.Text
+  source      String                @default("WEB") // "WEB", "DOCUMENT", "AUDIO", "SLACK", "NOTION", "GITHUB", "NOTE", "IMAGE"
+  url         String
+  metadata    Json                  @default("{}")
+  folderId    String?
+  folder      Folder?               @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  teamId      String?
+  team        Team?                 @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  highlights  Highlight[]
+  feedbacks   Feedback[]
+  comments    Comment[]
+  mentions    PersonMention[]
+  executions  AutomationExecution[]
+
+  @@index([userId])
+  @@index([folderId])
+  @@index([teamId])
+  @@index([source])
+  @@index([createdAt])
 }
 
 model Highlight {
@@ -37,6 +67,7 @@ model Highlight {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   memoryId  String?  // Optional link to ingestion memory
+  memory    Memory?  @relation(fields: [memoryId], references: [id], onDelete: SetNull)
   url       String
   text      String   // Highlighted text content
   note      String?  // Optional user annotation
@@ -45,14 +76,17 @@ model Highlight {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([memoryId])
   @@index([url])
 }
 
 model Team {
   id        String       @id @default(cuid())
   name      String
+  slug      String?      @unique
   createdAt DateTime     @default(now())
   members   TeamMember[]
+  memories  Memory[]
 }
 
 model TeamMember {
@@ -70,12 +104,13 @@ model TeamMember {
 
 model Subscription {
   id                   String    @id @default(cuid())
-  userId               String
+  userId               String    @unique
   user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   stripeCustomerId     String?
   stripeSubscriptionId String?
   plan                 Plan      @default(FREE)
   status               String    @default("incomplete") // "active", "past_due", "canceled"
+  currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -98,6 +133,7 @@ model Integration {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  @@unique([userId, provider])
   @@index([userId])
   @@index([provider])
 }
@@ -106,8 +142,9 @@ model Feedback {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  memoryId  String   // Point ID in Qdrant
-  signal    String   // "search_click", "search_upvote", "search_downvote", "rating"
+  memoryId  String   // Foreign key link to Memory
+  memory    Memory   @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  signal    String   // "search_click", "search_upvote", "search_downvote", "rating", "feature_request", "bug_report"
   rating    Int?     // 1-5
   comment   String?
   createdAt DateTime @default(now())
@@ -121,6 +158,7 @@ model Comment {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   memoryId  String
+  memory    Memory    @relation(fields: [memoryId], references: [id], onDelete: Cascade)
   text      String
   parentId  String?
   parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
@@ -146,6 +184,7 @@ model Folder {
   icon        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  memories    Memory[]
 
   @@index([userId])
   @@index([parentId])
@@ -176,6 +215,7 @@ model AutomationExecution {
   ruleId     String
   rule       AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   memoryId   String?
+  memory     Memory?        @relation(fields: [memoryId], references: [id], onDelete: SetNull)
   status     String         // "success", "failure", "skipped"
   result     Json?
   error      String?
@@ -210,6 +250,7 @@ model PersonMention {
   personId  String
   person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
   memoryId  String
+  memory    Memory   @relation(fields: [memoryId], references: [id], onDelete: Cascade)
   context   String?
   timestamp DateTime @default(now())
 

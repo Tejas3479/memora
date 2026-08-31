@@ -96,14 +96,32 @@ export default async function transcribeRoutes(fastify: FastifyInstance) {
       }
     }
 
-    // Ingest transcribed memory
-    const memoryId = crypto.randomUUID();
+    const prismaInstance = (fastify as any).prisma || (await import('../prisma.js')).prisma;
+
+    // Dual-Write: Create canonical relational Memory in PostgreSQL
+    const memory = await prismaInstance.memory.create({
+      data: {
+        userId,
+        title: `Audio Note: ${filename}`,
+        content,
+        source: 'AUDIO',
+        url: `audio://${crypto.randomUUID()}`,
+        metadata: {
+          notes,
+          transcript,
+          filename,
+        },
+      },
+    });
+    const memoryId = memory.id;
+
     const chunks = chunker.chunk(content, {
       title: `Audio Note: ${filename}`,
-      url: `audio://${memoryId}`,
+      url: memory.url,
       source: 'AUDIO',
       timestamp: Math.floor(Date.now() / 1000),
       userId,
+      memoryId,
     });
 
     const textPieces = chunks.map((c) => c.text);

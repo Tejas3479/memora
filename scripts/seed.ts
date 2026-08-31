@@ -53,6 +53,131 @@ async function main() {
   });
   console.log(`   ✅ User created: ${charlie.email}`);
 
+  // ── Folders ─────────────────────────────────────────────────────────────────
+  console.log('\n📁 Creating test folders...');
+
+  let workFolder = await prisma.folder.findFirst({
+    where: { userId: alice.id, name: 'Work & Projects' },
+  });
+  if (!workFolder) {
+    workFolder = await prisma.folder.create({
+      data: {
+        userId: alice.id,
+        name: 'Work & Projects',
+        description: 'Engineering and architecture documentation',
+        color: '#7c3aed',
+        icon: 'folder',
+      },
+    });
+  }
+  console.log(`   ✅ Folder created: ${workFolder.name}`);
+
+  let readingFolder = await prisma.folder.findFirst({
+    where: { userId: alice.id, name: 'Reading List' },
+  });
+  if (!readingFolder) {
+    readingFolder = await prisma.folder.create({
+      data: {
+        userId: alice.id,
+        name: 'Reading List',
+        description: 'Articles, papers, and bookmarks',
+        color: '#06b6d4',
+        icon: 'book',
+      },
+    });
+  }
+  console.log(`   ✅ Folder created: ${readingFolder.name}`);
+
+  // ── Memories (Relational) ───────────────────────────────────────────────────
+  console.log('\n🧠 Creating test memories...');
+
+  let memory1 = await prisma.memory.findFirst({
+    where: { userId: alice.id, title: 'Scaling Qdrant for Real-Time Memory Layers' },
+  });
+  if (!memory1) {
+    memory1 = await prisma.memory.create({
+      data: {
+        userId: alice.id,
+        title: 'Scaling Qdrant for Real-Time Memory Layers',
+        content: 'To scale Qdrant in production, we use HNSW index construction and scalar quantization (int8). This reduces RAM usage by 75% while maintaining 99% retrieval precision for 1024-dimension Voyage-3 embeddings.',
+        source: 'WEB',
+        url: 'https://qdrant.tech/articles/scaling-vector-search',
+        folderId: workFolder.id,
+        metadata: {
+          tags: ['qdrant', 'vector-search', 'scaling'],
+          author: 'Vector Search Team',
+        },
+      },
+    });
+  }
+  console.log(`   ✅ Memory created: ${memory1.title}`);
+
+  let memory2 = await prisma.memory.findFirst({
+    where: { userId: alice.id, title: 'Fastify v5 Architecture & Plugin Isolation' },
+  });
+  if (!memory2) {
+    memory2 = await prisma.memory.create({
+      data: {
+        userId: alice.id,
+        title: 'Fastify v5 Architecture & Plugin Isolation',
+        content: 'Fastify uses an encapsulated context tree for plugins. Decorators registered inside a plugin remain private unless fastify-plugin (fp) wrapper is used. CORS and rate-limiting should be registered at the root instance.',
+        source: 'NOTE',
+        url: 'notes://fastify-architecture',
+        folderId: workFolder.id,
+        metadata: {
+          tags: ['fastify', 'backend', 'architecture'],
+        },
+      },
+    });
+  }
+  console.log(`   ✅ Memory created: ${memory2.title}`);
+
+  let memory3 = await prisma.memory.findFirst({
+    where: { userId: bob.id, title: 'React 19 Server Components & Actions' },
+  });
+  if (!memory3) {
+    memory3 = await prisma.memory.create({
+      data: {
+        userId: bob.id,
+        title: 'React 19 Server Components & Actions',
+        content: 'React 19 introduces native useActionState, useOptimistic, and compiler-level memoization. Client components hydrate progressively while server boundaries stream HTML.',
+        source: 'WEB',
+        url: 'https://react.dev/blog/2024/12/05/react-19',
+        metadata: {
+          tags: ['react', 'frontend', 'web'],
+        },
+      },
+    });
+  }
+  console.log(`   ✅ Memory created: ${memory3.title}`);
+
+  // ── Highlights ─────────────────────────────────────────────────────────────
+  console.log('\n🖍️ Creating test highlights...');
+
+  await prisma.highlight.create({
+    data: {
+      userId: alice.id,
+      memoryId: memory1.id,
+      url: memory1.url,
+      text: 'scalar quantization (int8) reduces RAM usage by 75% while maintaining 99% retrieval precision',
+      note: 'Crucial metric for capacity planning',
+      color: 'yellow',
+    },
+  });
+  console.log('   ✅ Highlight added to Memory 1');
+
+  // ── Comments ───────────────────────────────────────────────────────────────
+  console.log('\n💬 Creating test comments...');
+
+  await prisma.comment.create({
+    data: {
+      userId: alice.id,
+      memoryId: memory1.id,
+      text: 'We should verify this benchmark against 10M vectors on our staging cluster.',
+    },
+  });
+  console.log('   ✅ Comment added to Memory 1');
+
   // ── Team ───────────────────────────────────────────────────────────────────
   console.log('\n🏢 Creating test team...');
 
@@ -184,32 +309,24 @@ async function main() {
   await prisma.feedback.create({
     data: {
       userId: alice.id,
-      type: 'FEATURE_REQUEST',
-      message: 'It would be great to have a calendar view for memories organized by date.',
+      memoryId: memory1.id,
+      signal: 'search_upvote',
       rating: 5,
+      comment: 'Accurate retrieval for quantization configuration.',
     },
   });
-  console.log('   ✅ Feedback from Alice (feature request)');
+  console.log('   ✅ Feedback from Alice (search_upvote)');
 
   await prisma.feedback.create({
     data: {
       userId: bob.id,
-      type: 'BUG_REPORT',
-      message: 'Search results occasionally show duplicates when using source filters.',
-      rating: 3,
+      memoryId: memory3.id,
+      signal: 'search_click',
+      rating: 4,
+      comment: 'Relevant documentation hit.',
     },
   });
-  console.log('   ✅ Feedback from Bob (bug report)');
-
-  await prisma.feedback.create({
-    data: {
-      userId: charlie.id,
-      type: 'GENERAL',
-      message: 'Love the product! The knowledge graph visualization is amazing.',
-      rating: 5,
-    },
-  });
-  console.log('   ✅ Feedback from Charlie (general)');
+  console.log('   ✅ Feedback from Bob (search_click)');
 
   console.log('\n🎉 Database seeded successfully!');
 }

@@ -15,14 +15,28 @@ export interface SearchRequest {
   offset?: number;
 }
 
+export interface Memory {
+  id: string;
+  userId: string;
+  title: string;
+  content: string;
+  source: MemorySource | string;
+  url: string;
+  metadata?: Record<string, unknown>;
+  folderId?: string | null;
+  teamId?: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
 export interface SearchResult {
   id: string;
   content: string;
   title: string;
   url: string;
-  source: MemorySource;
-  timestamp: string;
-  score: number;
+  source: MemorySource | string;
+  timestamp: string | number;
+  score?: number;
   chunkId: string;
   metadata?: Record<string, unknown>;
 }

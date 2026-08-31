@@ -38,22 +38,38 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
     const { content, url, source, title, timestamp, metadata = {} } = result.data;
 
     const docTimestamp = Math.floor(new Date(timestamp).getTime() / 1000);
-    const memoryId = crypto.randomUUID();
+    const prismaInstance = (fastify as any).prisma || (await import('../prisma.js')).prisma;
 
-    // 1. Chunk content
+    // 1. Dual-Write: Create canonical relational Memory in PostgreSQL
+    const memory = await prismaInstance.memory.create({
+      data: {
+        userId,
+        title,
+        content,
+        source: (source || 'WEB').toUpperCase(),
+        url,
+        metadata: metadata || {},
+        folderId: (metadata as any)?.folderId || null,
+        teamId: (metadata as any)?.teamId || null,
+      },
+    });
+    const memoryId = memory.id;
+
+    // 2. Chunk content
     const chunks = chunker.chunk(content, {
       title,
       url,
       source,
       timestamp: docTimestamp,
       userId,
+      memoryId,
     });
 
-    // 2. Embed chunks
+    // 3. Embed chunks
     const textPieces = chunks.map((c) => c.text);
     const vectors = await embeddingService.embed(textPieces);
 
-    // 3. Upsert to Qdrant
+    // 4. Upsert to Qdrant
     const qPoints: QdrantPoint[] = chunks.map((chunk, i) => ({
       id: chunk.id,
       vector: vectors[i],
@@ -71,11 +87,10 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
 
     await qdrantService.upsertMemories(qPoints);
 
-    // 4. Increment Redis limit counter
+    // 5. Increment Redis limit counter
     await incrementIngestCounter(userId);
 
-    // 5. Evaluate and trigger automation rules
-    const prismaInstance = (fastify as any).prisma || (await import('../prisma.js')).prisma;
+    // 6. Evaluate and trigger automation rules
     const automation = new AutomationService(prismaInstance);
     await automation.evaluateRules(userId, memoryId, 'ON_INGEST', {
       title,
@@ -84,7 +99,7 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
       metadata,
     });
 
-    // 6. Emit real-time ingest update
+    // 7. Emit real-time ingest update
     await broadcastToUser(userId, {
       type: 'ingest_status',
       data: { memoryId, title, source, status: 'indexed' },
@@ -119,8 +134,8 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
     }
 
     const buffer = await data.toBuffer();
-    const memoryId = crypto.randomUUID();
-    const fileName = `${memoryId}-${data.filename}`;
+    const tempId = crypto.randomUUID();
+    const fileName = `${tempId}-${data.filename}`;
     const filePath = path.join(UPLOADS_DIR, fileName);
 
     // Save locally
@@ -128,21 +143,21 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
     const fileUrl = `http://localhost:4000/uploads/${fileName}`;
 
     let text = '';
-    let source = 'document';
+    let source = 'DOCUMENT';
     let isImage = false;
 
     try {
       if (data.mimetype === 'application/pdf') {
         const parsed = await pdf(buffer);
         text = parsed.text || '';
-        source = 'document';
+        source = 'DOCUMENT';
       } else if (data.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         const parsed = await mammoth.extractRawText({ buffer });
         text = parsed.value || '';
-        source = 'document';
+        source = 'DOCUMENT';
       } else if (data.mimetype.startsWith('image/')) {
         isImage = true;
-        source = 'image';
+        source = 'IMAGE';
         
         // Run OCR fallback
         try {
@@ -161,6 +176,25 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
       console.error('[UploadRoute] Error parsing file content:', err);
       throw new InternalError(`Failed to parse file: ${(err as Error).message}`);
     }
+
+    const prismaInstance = (fastify as any).prisma || (await import('../prisma.js')).prisma;
+
+    // Dual-Write: Create canonical relational Memory in PostgreSQL
+    const memory = await prismaInstance.memory.create({
+      data: {
+        userId,
+        title: data.filename,
+        content: text || `Uploaded file: ${data.filename}`,
+        source,
+        url: fileUrl,
+        metadata: {
+          fileUrl,
+          mimetype: data.mimetype,
+          ocrText: isImage ? text : undefined,
+        },
+      },
+    });
+    const memoryId = memory.id;
 
     let qPoints: QdrantPoint[] = [];
 
@@ -196,6 +230,7 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
         source,
         timestamp: Math.floor(Date.now() / 1000),
         userId,
+        memoryId,
       });
 
       const textPieces = chunks.map((c) => c.text);
@@ -225,7 +260,6 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
     await incrementIngestCounter(userId);
 
     // Evaluate rules
-    const prismaInstance = (fastify as any).prisma || (await import('../prisma.js')).prisma;
     const automation = new AutomationService(prismaInstance);
     await automation.evaluateRules(userId, memoryId, 'ON_INGEST', {
       title: data.filename,

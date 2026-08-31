@@ -65,5 +65,39 @@ export class FolderService {
 
     return rootNodes.map((r: any) => buildNode(r));
   }
+
+  public async addMemories(folderId: string, userId: string, memoryIds: string[]): Promise<number> {
+    const folder = await this.prisma.folder.findFirst({
+      where: { id: folderId, userId },
+    });
+    if (!folder) throw new Error('Folder not found');
+
+    const res = await this.prisma.memory.updateMany({
+      where: {
+        id: { in: memoryIds },
+        userId,
+      },
+      data: {
+        folderId,
+      },
+    });
+
+    return res.count;
+  }
+
+  public async getFolderMemories(folderId: string, userId: string): Promise<any[]> {
+    const folder = await this.prisma.folder.findFirst({
+      where: { id: folderId, userId },
+    });
+    if (!folder) throw new Error('Folder not found');
+
+    return this.prisma.memory.findMany({
+      where: {
+        folderId,
+        userId,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }
 export default FolderService;
