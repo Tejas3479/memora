@@ -181,18 +181,26 @@ const start = async () => {
   }
 };
 
-// Graceful Shut-Down handlers
-const signals = ['SIGINT', 'SIGTERM'];
-for (const signal of signals) {
-  process.on(signal, async () => {
-    app.log.info(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);
-    await app.close();
-    await redisClient.quit();
-    process.exit(0);
-  });
-}
+if (!isTest) {
+  // Graceful Shut-Down handlers
+  const signals = ['SIGINT', 'SIGTERM'];
+  for (const signal of signals) {
+    process.on(signal, async () => {
+      app.log.info(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);
+      try {
+        await app.close();
+      } catch (err) {
+        // ignore
+      }
+      try {
+        await redisClient.quit();
+      } catch (err) {
+        // ignore
+      }
+      process.exit(0);
+    });
+  }
 
-if (process.env.NODE_ENV !== 'test') {
   start();
 }
 

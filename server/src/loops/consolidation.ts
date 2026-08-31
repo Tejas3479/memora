@@ -91,18 +91,27 @@ export class ConsolidationLoop {
     const groups: string[][] = [];
     const visited = new Set<string>();
 
-    for (let i = 0; i < memories.length; i++) {
-      const a = memories[i];
+    // Ensure vectors exist for comparison
+    const embeddedMemories = await Promise.all(
+      memories.map(async (m) => {
+        if (m.vector && m.vector.length > 0) return m;
+        const vec = await this.embeddingService.embedSingle(m.content || m.title || '');
+        return { ...m, vector: vec };
+      })
+    );
+
+    for (let i = 0; i < embeddedMemories.length; i++) {
+      const a = embeddedMemories[i];
       if (visited.has(a.id) || !a.vector || a.vector.length === 0) continue;
 
       const currentGroup = [a.id];
-      for (let j = i + 1; j < memories.length; j++) {
-        const b = memories[j];
+      for (let j = i + 1; j < embeddedMemories.length; j++) {
+        const b = embeddedMemories[j];
         if (visited.has(b.id) || !b.vector || b.vector.length === 0) continue;
 
         const similarity = cosineSimilarity(a.vector, b.vector);
 
-        if (similarity > 0.85) {
+        if (similarity > 0.80) {
           currentGroup.push(b.id);
           visited.add(b.id);
         }
