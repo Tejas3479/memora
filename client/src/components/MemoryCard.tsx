@@ -1,6 +1,6 @@
 import React from 'react';
 import { SearchResult } from '@memora/shared';
-import { Globe, MessageSquare, BookOpen, Github, FileText, StickyNote, Award } from 'lucide-react';
+import { Globe, MessageSquare, BookOpen, Github, FileText, StickyNote, Award, ExternalLink } from 'lucide-react';
 
 interface Props {
   memory: SearchResult;
@@ -26,6 +26,19 @@ export default function MemoryCard({ memory }: Props) {
     }
   };
 
+  const isHttpUrl = memory.url && (memory.url.startsWith('http://') || memory.url.startsWith('https://'));
+
+  const formatTimestamp = () => {
+    if (!memory.timestamp && !(memory as any).createdAt) return 'Recent';
+    const raw = Number(memory.timestamp);
+    if (!isNaN(raw) && raw > 0) {
+      const date = raw > 1e11 ? new Date(raw) : new Date(raw * 1000);
+      return date.toLocaleDateString();
+    }
+    const created = (memory as any).createdAt ? new Date((memory as any).createdAt) : null;
+    return created && !isNaN(created.getTime()) ? created.toLocaleDateString() : 'Recent';
+  };
+
   return (
     <div className="glass p-6 rounded-2xl border border-white/5 border-t border-white/12 hover:scale-[1.01] hover:border-white/15 active:scale-[0.99] transition-all duration-250 ease-out flex flex-col gap-3 group">
       <div className="flex items-start justify-between">
@@ -37,9 +50,21 @@ export default function MemoryCard({ memory }: Props) {
             <span className="font-semibold text-white leading-snug group-hover:text-memora-accent transition-colors">
               {memory.title}
             </span>
-            <span className="text-xs text-memora-text-muted">
-              {memory.url}
-            </span>
+            {isHttpUrl ? (
+              <a
+                href={memory.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-memora-text-muted hover:text-memora-accent flex items-center gap-1 transition-colors group-hover:underline"
+              >
+                <span className="truncate max-w-[260px]">{memory.url}</span>
+                <ExternalLink size={10} className="shrink-0" />
+              </a>
+            ) : (
+              <span className="text-xs text-memora-text-muted truncate max-w-[260px]">
+                {memory.url}
+              </span>
+            )}
           </div>
         </div>
         {memory.score !== undefined && (
@@ -56,7 +81,7 @@ export default function MemoryCard({ memory }: Props) {
 
       <div className="flex items-center justify-between border-t border-memora-border/40 pt-3 mt-1">
         <span className="text-xs text-memora-text-muted">
-          {new Date(Number(memory.timestamp) * 1000).toLocaleDateString()}
+          {formatTimestamp()}
         </span>
         <span className="text-xs font-semibold uppercase text-memora-text-muted">
           {memory.source}

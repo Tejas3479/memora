@@ -46,9 +46,10 @@ export class DreamingLoop {
             userId: input.userId,
             title: `Dream Insight: ${discovery.type.toUpperCase()}`,
             content: discovery.description,
-            source: 'DREAM',
+            source: 'NOTE',
             url: dreamUrl,
             metadata: {
+              isDream: true,
               type: discovery.type,
               connectedMemoryIds: discovery.memoryIds,
               noveltyScore: discovery.noveltyScore,
@@ -63,12 +64,13 @@ export class DreamingLoop {
           payload: {
             userId: input.userId,
             chunkId: crypto.randomUUID(),
-            source: 'DREAM',
+            source: 'note',
             url: dreamUrl,
             title: `Dream Insight: ${discovery.type.toUpperCase()}`,
             content: discovery.description,
             timestamp: Math.floor(Date.now() / 1000),
             metadata: {
+              isDream: true,
               memoryId: memoryRecord.id,
               connectedMemoryIds: discovery.memoryIds,
               noveltyScore: discovery.noveltyScore,

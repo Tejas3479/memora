@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 export const commentCreateSchema = z.object({
-  memoryId: z.string().uuid(),
+  memoryId: z.string().min(1),
   text: z.string().min(1),
-  parentId: z.string().uuid().optional(),
+  parentId: z.string().min(1).optional(),
 });
 
 export const commentUpdateSchema = z.object({

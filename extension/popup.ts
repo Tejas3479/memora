@@ -33,25 +33,48 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     captureBtn!.innerText = 'Capturing...';
     
-    // Inject readability / content scrape on active page
-    chrome.tabs.sendMessage(tab.id, { type: MessageType.CAPTURE_SELECTION }, (response) => {
-      // Background message routing takes care of page captures or selection
-      chrome.runtime.sendMessage({
-        type: MessageType.CAPTURE_PAGE,
-        payload: {
-          content: response?.selection || 'Manual page extract content text placeholder.',
-          title: tab.title || 'Tab title',
-          url: tab.url || '',
-          timestamp: new Date().toISOString(),
-          source: 'web',
-        },
-      }, () => {
-        captureBtn!.innerText = 'Captured!';
-        setTimeout(() => {
-          captureBtn!.innerText = 'Capture Page';
-          updateStatus();
-        }, 1500);
-      });
+    // Check selection, or extract full readability content
+    chrome.tabs.sendMessage(tab.id, { type: MessageType.CAPTURE_SELECTION }, (selResponse) => {
+      const selection = selResponse?.selection;
+      if (selection) {
+        chrome.runtime.sendMessage({
+          type: MessageType.CAPTURE_PAGE,
+          payload: {
+            content: selection,
+            title: tab.title || 'Selected text',
+            url: tab.url || '',
+            timestamp: new Date().toISOString(),
+            source: 'web',
+          },
+        }, () => {
+          captureBtn!.innerText = 'Captured!';
+          setTimeout(() => {
+            captureBtn!.innerText = 'Capture Page';
+            updateStatus();
+          }, 1500);
+        });
+      } else {
+        chrome.tabs.sendMessage(tab.id, { type: 'GET_FULL_CONTENT' }, (fullResponse) => {
+          const content = fullResponse?.content || tab.title || 'Page capture';
+          chrome.runtime.sendMessage({
+            type: MessageType.CAPTURE_PAGE,
+            payload: {
+              content,
+              title: fullResponse?.title || tab.title || 'Web page',
+              url: fullResponse?.url || tab.url || '',
+              timestamp: new Date().toISOString(),
+              source: 'web',
+              metadata: fullResponse?.metadata || {},
+            },
+          }, () => {
+            captureBtn!.innerText = 'Captured!';
+            setTimeout(() => {
+              captureBtn!.innerText = 'Capture Page';
+              updateStatus();
+            }, 1500);
+          });
+        });
+      }
     });
   });
 

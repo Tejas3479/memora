@@ -6,19 +6,21 @@ import { SearchResult, LoopType } from '@memora/shared';
 
 export interface TimelineFilters {
   source?: string;
+  folderId?: string;
   dateFrom?: string;
   dateTo?: string;
   limit?: number;
 }
 
 export function useTimelineInfiniteQuery(filters: TimelineFilters = {}) {
-  const { source = '', dateFrom = '', dateTo = '', limit = 10 } = filters;
+  const { source = '', folderId = '', dateFrom = '', dateTo = '', limit = 10 } = filters;
 
   return useInfiniteQuery({
-    queryKey: ['timeline', { source, dateFrom, dateTo }],
+    queryKey: ['timeline', { source, folderId, dateFrom, dateTo }],
     queryFn: async ({ pageParam = 0 }) => {
       let url = `/api/timeline?limit=${limit}&offset=${pageParam}`;
       if (source) url += `&source=${encodeURIComponent(source)}`;
+      if (folderId) url += `&folderId=${encodeURIComponent(folderId)}`;
       if (dateFrom) url += `&dateFrom=${encodeURIComponent(dateFrom)}`;
       if (dateTo) url += `&dateTo=${encodeURIComponent(dateTo)}`;
       const res = await api.get(url);

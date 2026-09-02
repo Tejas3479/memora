@@ -30,6 +30,16 @@ const envSchema = z.object({
 let env: z.infer<typeof envSchema>;
 try {
   env = envSchema.parse(process.env);
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.JWT_PRIVATE_KEY || !process.env.JWT_PUBLIC_KEY) {
+      console.error('❌ In production, JWT_PRIVATE_KEY and JWT_PUBLIC_KEY must be configured.');
+      process.exit(1);
+    }
+    if (!process.env.TOKEN_ENCRYPTION_KEY || process.env.TOKEN_ENCRYPTION_KEY === '0123456789abcdef0123456789abcdef') {
+      console.error('❌ In production, a secure TOKEN_ENCRYPTION_KEY must be configured.');
+      process.exit(1);
+    }
+  }
 } catch (error) {
   if (error instanceof z.ZodError) {
     console.error('❌ Environment configuration validation failed:');

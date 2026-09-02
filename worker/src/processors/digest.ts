@@ -1,20 +1,23 @@
 import { Job } from 'bullmq';
+import crypto from 'crypto';
 import { WeeklyDigestPayload, WeeklyDigestResult, createLogger } from '@memora/shared';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { prisma } from '../prisma.js';
+import { QdrantService } from '../services/qdrant.js';
+import { embedText } from '../services/embedding.js';
 
 const logger = createLogger('DigestProcessor');
+const qdrant = new QdrantService();
 
-export async function digestProcessor(job: Job<WeeklyDigestPayload>): Promise<WeeklyDigestResult> {
-  const { userId, weekStart, weekEnd } = job.data;
-
-  const startDate = weekStart ? new Date(weekStart) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const endDate = weekEnd ? new Date(weekEnd) : new Date();
-
-  // Retrieve memories compiled during the week from PostgreSQL
+async function processUserDigest(
+  targetUserId: string,
+  startDate: Date,
+  endDate: Date,
+  apiKey?: string,
+): Promise<{ memoriesCount: number; topTopics: string[]; summaryGenerated: boolean }> {
   const memories = await prisma.memory.findMany({
     where: {
-      userId,
+      userId: targetUserId,
       createdAt: {
         gte: startDate,
         lte: endDate,
@@ -24,7 +27,7 @@ export async function digestProcessor(job: Job<WeeklyDigestPayload>): Promise<We
     take: 100,
   });
 
-  logger.info(`Compiling weekly summary report for ${userId} across ${memories.length} memory records.`);
+  logger.info(`Compiling weekly summary report for ${targetUserId} across ${memories.length} memory records.`);
 
   if (memories.length === 0) {
     return {
@@ -34,7 +37,6 @@ export async function digestProcessor(job: Job<WeeklyDigestPayload>): Promise<We
     };
   }
 
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   let summaryText = '';
   let topTopics: string[] = [];
 
@@ -71,15 +73,18 @@ ${memorySnippets}
     topTopics = Array.from(new Set(memories.map((m) => m.source)));
   }
 
+  const digestUrl = `memora://digest/${startDate.toISOString().slice(0, 10)}`;
+  const title = `Weekly Digest: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+
   // Persist weekly digest in PostgreSQL
   try {
-    await prisma.memory.create({
+    const memory = await prisma.memory.create({
       data: {
-        userId,
-        title: `Weekly Digest: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`,
+        userId: targetUserId,
+        title,
         content: summaryText,
         source: 'NOTE',
-        url: `memora://digest/${startDate.toISOString().slice(0, 10)}`,
+        url: digestUrl,
         metadata: {
           isDigest: true,
           memoriesCount: memories.length,
@@ -89,6 +94,30 @@ ${memorySnippets}
         },
       },
     });
+
+    // Dual-write vector embedding to Qdrant
+    try {
+      const vector = await embedText(summaryText);
+      await qdrant.upsertMemories([
+        {
+          id: crypto.randomUUID(),
+          vector,
+          payload: {
+            memoryId: memory.id,
+            userId: targetUserId,
+            title: memory.title,
+            content: summaryText,
+            url: digestUrl,
+            source: 'note',
+            timestamp: Math.floor(memory.createdAt.getTime() / 1000),
+            chunkId: crypto.randomUUID(),
+            metadata: memory.metadata,
+          },
+        },
+      ]);
+    } catch (vecErr) {
+      logger.warn(`Failed to upsert digest vector to Qdrant for user ${targetUserId}:`, vecErr);
+    }
   } catch (err) {
     logger.warn('Failed to save weekly digest memory record:', err);
   }
@@ -97,5 +126,36 @@ ${memorySnippets}
     memoriesCount: memories.length,
     topTopics,
     summaryGenerated: true,
+  };
+}
+
+export async function digestProcessor(job: Job<WeeklyDigestPayload>): Promise<WeeklyDigestResult> {
+  const { userId, weekStart, weekEnd } = job.data || {};
+
+  const startDate = weekStart ? new Date(weekStart) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const endDate = weekEnd ? new Date(weekEnd) : new Date();
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+
+  if (userId) {
+    return processUserDigest(userId, startDate, endDate, apiKey);
+  }
+
+  // Recurring Monday batch schedule across all active users
+  const users = await prisma.user.findMany({ select: { id: true } });
+  let totalMemories = 0;
+  let allTopics: string[] = [];
+  let anyGenerated = false;
+
+  for (const u of users) {
+    const res = await processUserDigest(u.id, startDate, endDate, apiKey);
+    totalMemories += res.memoriesCount;
+    allTopics.push(...res.topTopics);
+    if (res.summaryGenerated) anyGenerated = true;
+  }
+
+  return {
+    memoriesCount: totalMemories,
+    topTopics: Array.from(new Set(allTopics)).slice(0, 10),
+    summaryGenerated: anyGenerated,
   };
 }

@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
-import { planLimitMiddleware } from '../middleware/planLimit.js';
+import { planLimitMiddleware, incrementIngestCounter } from '../middleware/planLimit.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config.js';
 import { summarizeRequestSchema, MemorySource } from '@memora/shared';
@@ -98,6 +98,7 @@ Format the output strictly as a JSON object matching this structure:
       },
     });
     const memoryId = memory.id;
+    await incrementIngestCounter(userId);
 
     const chunks = chunker.chunk(summaryText, {
       title: `Summary: ${title}`,

@@ -90,7 +90,15 @@
 }
 
 /* ADHD Focus mode dimming configurations */
-.adhd-focus-active .layout-sidebar,
+.adhd-focus-active .layout-sidebar {
+  opacity: 0.35;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.adhd-focus-active .layout-sidebar:hover {
+  opacity: 1;
+}
+
 .adhd-focus-active .proactive-panel,
 .adhd-focus-active .bento-metric-card {
   opacity: 0.12;

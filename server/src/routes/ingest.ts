@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
 import { planLimitMiddleware, incrementIngestCounter } from '../middleware/planLimit.js';
+import { prisma } from '../prisma.js';
 import { ValidationError, NotFoundError, ForbiddenError, InternalError } from '../lib/errors.js';
 import { TextChunker } from '../services/ai/chunker.js';
 import { EmbeddingService } from '../services/ai/embedding.js';
@@ -116,6 +117,7 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get('/uploads/:filename', { preHandler: authMiddleware }, async (request, reply) => {
+    const userId = request.user!.userId;
     const { filename } = request.params as any;
     const filePath = path.resolve(UPLOADS_DIR, filename);
     if (!filePath.startsWith(UPLOADS_DIR)) {
@@ -124,6 +126,18 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
     if (!fs.existsSync(filePath)) {
       throw new NotFoundError('File not found');
     }
+
+    // Verify requesting user owns the uploaded file
+    const memory = await prisma.memory.findFirst({
+      where: {
+        userId,
+        url: { contains: filename },
+      },
+    });
+    if (!memory) {
+      throw new ForbiddenError('You do not have permission to access this file');
+    }
+
     const stream = fs.createReadStream(filePath);
     return reply.send(stream);
   });

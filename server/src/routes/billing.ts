@@ -26,9 +26,15 @@ export default async function billingRoutes(fastify: FastifyInstance) {
         where: { id: userId },
         data: { plan },
       });
-      await prisma.subscription.create({
-        data: {
+      await prisma.subscription.upsert({
+        where: { userId },
+        create: {
           userId,
+          plan,
+          status: 'active',
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+        update: {
           plan,
           status: 'active',
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -64,7 +70,77 @@ export default async function billingRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post('/stripe/webhook', async (request, reply) => {
-    // Process subscription events
+    const sig = request.headers['stripe-signature'] as string;
+    let event: any;
+
+    if (config.stripe.webhookSecret && sig) {
+      try {
+        event = stripe.webhooks.constructEvent(request.body as any, sig, config.stripe.webhookSecret);
+      } catch (err) {
+        console.error('[Stripe Webhook Signature Verification Failed]', err);
+        return reply.status(400).send({ error: 'Invalid webhook signature' });
+      }
+    } else {
+      event = request.body as any;
+    }
+
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data?.object;
+          const userId = session?.metadata?.userId;
+          const plan = session?.metadata?.plan;
+          if (userId && plan) {
+            await prisma.user.update({
+              where: { id: userId },
+              data: { plan },
+            });
+            await prisma.subscription.upsert({
+              where: { userId },
+              create: {
+                userId,
+                plan,
+                status: 'active',
+                stripeCustomerId: session.customer,
+                stripeSubscriptionId: session.subscription,
+                currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              },
+              update: {
+                plan,
+                status: 'active',
+                stripeCustomerId: session.customer,
+                stripeSubscriptionId: session.subscription,
+                currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              },
+            });
+          }
+          break;
+        }
+        case 'customer.subscription.deleted': {
+          const subscription = event.data?.object;
+          if (subscription?.id) {
+            const existingSub = await prisma.subscription.findFirst({
+              where: { stripeSubscriptionId: subscription.id },
+            });
+            if (existingSub) {
+              await prisma.user.update({
+                where: { id: existingSub.userId },
+                data: { plan: 'FREE' },
+              });
+              await prisma.subscription.update({
+                where: { id: existingSub.id },
+                data: { status: 'canceled' },
+              });
+            }
+          }
+          break;
+        }
+      }
+    } catch (err) {
+      console.error('[Stripe Webhook Processing Error]', err);
+      return reply.status(500).send({ error: 'Webhook processing failed' });
+    }
+
     return { received: true };
   });
 

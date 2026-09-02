@@ -9,8 +9,11 @@ export function requireTeamRole(allowedRoles: string[]) {
     }
 
     const userId = request.user.userId;
-    // Extract teamId from params or request body
-    const { teamId } = (request.params as any) || (request.body as any) || {};
+    // Extract teamId from params, body, or query
+    const teamId =
+      (request.params as any)?.teamId ||
+      (request.body as any)?.teamId ||
+      (request.query as any)?.teamId;
 
     if (!teamId) {
       throw new ForbiddenError('Team ID context is missing');

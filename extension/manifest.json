@@ -3,7 +3,7 @@
   "name": "Memora - Personal Memory Layer",
   "version": "2.0.0",
   "description": "Capture, index, and recall everything you read, write, and discuss.",
-  "permissions": ["activeTab", "storage", "contextMenus", "alarms", "sidePanel"],
+  "permissions": ["activeTab", "tabs", "storage", "contextMenus", "alarms", "sidePanel"],
   "host_permissions": ["https://*/*", "http://*/*"],
   "background": {
     "service_worker": "dist/background.js",

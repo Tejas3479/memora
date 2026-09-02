@@ -1,63 +1,16 @@
 import { Job } from 'bullmq';
-import { PrismaClient } from '@prisma/client';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import crypto from 'crypto';
-import { createLogger, retry, slackBreaker, notionBreaker, voyageBreaker, qdrantBreaker } from '@memora/shared';
+import { createLogger, retry, slackBreaker, notionBreaker, qdrantBreaker } from '@memora/shared';
+import { prisma } from '../prisma.js';
+import { embedText } from '../services/embedding.js';
 
-const prisma = new PrismaClient();
 const qdrant = new QdrantClient({
   url: process.env.QDRANT_URL || 'http://localhost:6333',
   checkCompatibility: false,
 });
 const QDRANT_COLLECTION = 'memories';
 const logger = createLogger('IntegrationPoll');
-
-async function embedText(text: string): Promise<number[]> {
-  const voyageKey = process.env.VOYAGE_API_KEY;
-  const size = process.env.EMBEDDING_MODE === 'local' ? 384 : 1024;
-  
-  if (!voyageKey) {
-    const vec = new Array(size).fill(0);
-    for (let i = 0; i < Math.min(text.length, size); i++) {
-      vec[i] = text.charCodeAt(i) / 1000;
-    }
-    const mag = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0)) || 1;
-    return vec.map((v) => v / mag);
-  }
-
-  try {
-    const body = await voyageBreaker.execute(() =>
-      retry(
-        async () => {
-          const res = await fetch('https://api.voyageai.com/v1/embeddings', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${voyageKey}`,
-            },
-            body: JSON.stringify({
-              model: 'voyage-3.5',
-              input: [text],
-            }),
-          });
-          if (!res.ok) throw new Error(`Voyage error: ${res.status}`);
-          return res.json();
-        },
-        { attempts: 3, delay: 1000, backoff: 'exponential' }
-      )
-    );
-    return body.data[0].embedding;
-  } catch (err) {
-    logger.warn('Voyage fetch failed, using deterministic fallback vector', err);
-    const vec = new Array(size).fill(0);
-    for (let i = 0; i < text.length; i++) {
-      const idx = (text.charCodeAt(i) * 31 + i) % size;
-      vec[idx] += 1 / (1 + (i % 7));
-    }
-    const mag = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0)) || 1;
-    return vec.map((v) => v / mag);
-  }
-}
 
 export async function integrationPollProcessor(job: Job): Promise<number> {
   const integrations = await prisma.integration.findMany();
@@ -72,11 +25,12 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
         const token = integration.accessToken;
         if (!token) continue;
 
+        const channel = (integration.metadata as any)?.channel || (integration.metadata as any)?.channels?.[0] || 'general';
         const cursorParam = integration.cursor ? `&cursor=${integration.cursor}` : '';
         const response = await slackBreaker.execute(() =>
           retry(
             async () => {
-              const res = await fetch(`https://slack.com/api/conversations.history?channel=C0123456&limit=10${cursorParam}`, {
+              const res = await fetch(`https://slack.com/api/conversations.history?channel=${encodeURIComponent(channel)}&limit=10${cursorParam}`, {
                 headers: {
                   'Authorization': `Bearer ${token}`,
                 },

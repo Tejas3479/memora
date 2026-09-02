@@ -13,6 +13,7 @@ const synthesis = new SynthesisService();
 
 export default async function searchRoutes(fastify: FastifyInstance) {
   fastify.post('/api/search', { preHandler: authMiddleware }, async (request, reply) => {
+    const startTime = Date.now();
     const userId = request.user!.userId;
     const result = searchBodySchema.safeParse(request.body);
     if (!result.success) {
@@ -91,7 +92,7 @@ export default async function searchRoutes(fastify: FastifyInstance) {
       synthesizedAnswer: answer,
       subQueries: subQueries.length > 1 ? subQueries : undefined,
       total: results.length,
-      took: 10,
+      took: Math.max(1, Date.now() - startTime),
     };
   });
 }

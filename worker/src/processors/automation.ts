@@ -14,6 +14,10 @@ export async function automationProcessor(job: Job<AutomationRunnerPayload>): Pr
   const rule = await prisma.automationRule.findUnique({ where: { id: ruleId } });
   if (!rule) throw new Error(`Automation rule ${ruleId} not found`);
 
+  if (!rule.enabled) {
+    return { actionsExecuted: 0, results: [] };
+  }
+
   // Fetch memory details from PostgreSQL
   const memory = await prisma.memory.findFirst({ where: { id: memoryId, userId } });
   if (!memory) throw new Error(`Memory ${memoryId} not found`);
@@ -32,7 +36,7 @@ export async function automationProcessor(job: Job<AutomationRunnerPayload>): Pr
       if (action === 'TAG') {
         const currentMeta = (memory.metadata as Record<string, any>) || {};
         const currentTags = Array.isArray(currentMeta.tags) ? currentMeta.tags : [];
-        const newTag = (rule.actionConfig as any)?.tag || 'auto';
+        const newTag = (rule.actionConfig as any)?.tagName || (rule.actionConfig as any)?.tag || 'auto';
         if (!currentTags.includes(newTag)) {
           const updatedTags = [...currentTags, newTag];
           await prisma.memory.update({
@@ -61,14 +65,20 @@ export async function automationProcessor(job: Job<AutomationRunnerPayload>): Pr
         }
       } else if (action === 'MOVE_FOLDER') {
         const destFolderId = (rule.actionConfig as any)?.folderId;
+        if (destFolderId) {
+          const folder = await prisma.folder.findFirst({ where: { id: destFolderId, userId } });
+          if (!folder) {
+            throw new Error(`Destination folder ${destFolderId} not found or not owned by user`);
+          }
+        }
         await prisma.memory.update({
           where: { id: memoryId },
-          data: { folderId: destFolderId },
+          data: { folderId: destFolderId || null },
         });
 
         try {
           await qdrant.setPayload('memories', {
-            payload: { folderId: destFolderId },
+            payload: { folderId: destFolderId || null },
             filter: {
               must: [{ key: 'memoryId', match: { value: memoryId } }],
             },
@@ -88,12 +98,14 @@ export async function automationProcessor(job: Job<AutomationRunnerPayload>): Pr
     }
   }
 
+  const executionStatus = result.results.length > 0 && result.results.every((r) => r.success) ? 'success' : 'failure';
+
   // Record execution log in Postgres
   await prisma.automationExecution.create({
     data: {
       ruleId,
       memoryId,
-      status: 'success',
+      status: executionStatus,
       result: result as any,
     },
   });

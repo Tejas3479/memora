@@ -71,7 +71,14 @@ export class EmbeddingService {
 
   public async embedImage(base64Image: string): Promise<number[]> {
     if (!config.embedding.voyageApiKey || this.mode === 'local') {
-      const vec = new Array(config.embedding.dimension).fill(0).map(() => Math.random());
+      const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '');
+      const dim = config.embedding.dimension;
+      const vec = new Array(dim).fill(0);
+      for (let i = 0; i < base64Data.length; i++) {
+        const charCode = base64Data.charCodeAt(i);
+        const idx = (charCode * 31 + i) % dim;
+        vec[idx] += 1 / (1 + (i % 7));
+      }
       const mag = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0)) || 1;
       return vec.map((v) => v / mag);
     }

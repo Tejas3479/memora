@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
+import { planLimitMiddleware, incrementIngestCounter } from '../middleware/planLimit.js';
 import { prisma } from '../prisma.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config.js';
@@ -118,6 +119,7 @@ Provide an organized summary in clean Markdown format.`;
 
             await qdrantService.ensureCollection();
             await qdrantService.upsertMemories(qPoints);
+            await incrementIngestCounter(userId);
           }
         }
       } catch (ingestErr) {

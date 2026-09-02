@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import { QdrantService } from '../services/qdrant.js';
 import crypto from 'crypto';
 import { prisma } from '../prisma.js';
+import { embedText } from '../services/embedding.js';
 
 function cosineSimilarity(a: number[], b: number[]): number {
   if (!a || !b || a.length !== b.length || a.length === 0) return 0;
@@ -35,20 +36,45 @@ export class DreamingLoop {
 
     for (const discovery of discoveries) {
       try {
-        await prisma.memory.create({
+        const dreamUrl = `dream://${crypto.randomUUID()}`;
+        const memory = await prisma.memory.create({
           data: {
             userId: input.userId,
             title: `Dream Insight: ${discovery.type.toUpperCase()}`,
             content: discovery.description,
-            source: 'DREAM',
-            url: `dream://${crypto.randomUUID()}`,
+            source: 'NOTE',
+            url: dreamUrl,
             metadata: {
+              isDream: true,
               type: discovery.type,
               connectedMemoryIds: discovery.memoryIds,
               noveltyScore: discovery.noveltyScore,
             },
           },
         });
+
+        try {
+          const vector = await embedText(discovery.description);
+          await this.qdrantService.upsertMemories([
+            {
+              id: crypto.randomUUID(),
+              vector,
+              payload: {
+                memoryId: memory.id,
+                userId: input.userId,
+                title: memory.title,
+                content: discovery.description,
+                url: dreamUrl,
+                source: 'note',
+                timestamp: Math.floor(memory.createdAt.getTime() / 1000),
+                chunkId: crypto.randomUUID(),
+                metadata: memory.metadata,
+              },
+            },
+          ]);
+        } catch (vecErr) {
+          console.warn('[Worker DreamingLoop] Failed to upsert dream vector to Qdrant:', vecErr);
+        }
       } catch (err) {
         console.warn('[Worker DreamingLoop] Failed to save dream memory:', err);
       }

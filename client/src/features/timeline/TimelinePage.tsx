@@ -1,12 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTimelineInfiniteQuery } from '../../hooks/useQueries.js';
 import MemoryCard from '../../components/MemoryCard.js';
 import useInfiniteScroll from '../../hooks/useInfiniteScroll.js';
 
 export default function TimelinePage() {
-  const [sourceFilter, setSourceFilter] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const folderId = searchParams.get('folderId') || '';
+  const paramSource = searchParams.get('source') || '';
+  const [sourceFilter, setSourceFilter] = useState(paramSource);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  useEffect(() => {
+    if (paramSource) {
+      setSourceFilter(paramSource);
+    }
+  }, [paramSource]);
 
   const {
     data,
@@ -16,6 +26,7 @@ export default function TimelinePage() {
     fetchNextPage,
   } = useTimelineInfiniteQuery({
     source: sourceFilter,
+    folderId,
     dateFrom,
     dateTo,
     limit: 12,
@@ -84,6 +95,21 @@ export default function TimelinePage() {
           </button>
         )}
       </div>
+
+      {folderId && (
+        <div className="flex items-center justify-between bg-memora-accent/15 border border-memora-accent/30 px-3.5 py-1.5 rounded-xl text-xs text-white">
+          <span>Filtering by folder: <code className="font-mono text-memora-accent">{folderId}</code></span>
+          <button
+            onClick={() => {
+              searchParams.delete('folderId');
+              setSearchParams(searchParams);
+            }}
+            className="text-memora-accent hover:underline text-[11px] font-semibold cursor-pointer"
+          >
+            Clear Folder Filter
+          </button>
+        </div>
+      )}
 
       {/* Floating Capsule Tags */}
       <div className="flex gap-2 pb-2 overflow-x-auto select-none no-scrollbar">

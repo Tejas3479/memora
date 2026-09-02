@@ -74,11 +74,17 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm --filter @memora/server db:generate
 
+      - name: Push Database Schema
+        env:
+          DATABASE_URL: postgresql://memora:memora_dev@localhost:5432/memora
+        run: pnpm --filter @memora/server db:push
+
       - name: Run Tests
         env:
           DATABASE_URL: postgresql://memora:memora_dev@localhost:5432/memora
           REDIS_URL: redis://localhost:6379
           QDRANT_URL: http://localhost:6333
+          TOKEN_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
         run: pnpm test
 
       - name: Build Workspace Packages

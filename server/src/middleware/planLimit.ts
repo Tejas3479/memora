@@ -1,18 +1,8 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { Redis } from 'ioredis';
-import { config } from '../config.js';
+import { redis } from '../redis.js';
 import { PLAN_LIMITS } from '@memora/shared';
 import { getMonthKey } from '../lib/date.js';
 import { RateLimitError, UnauthorizedError } from '../lib/errors.js';
-
-const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
-const redis = new Redis(config.redis.url, {
-  lazyConnect: true,
-  enableOfflineQueue: false,
-  maxRetriesPerRequest: isTest ? 0 : 20,
-  retryStrategy: isTest ? () => null : (times) => Math.min(times * 50, 2000),
-});
-redis.on('error', () => {});
 
 export async function planLimitMiddleware(request: FastifyRequest, reply: FastifyReply) {
   if (!request.user) {

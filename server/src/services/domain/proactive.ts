@@ -1,17 +1,15 @@
-import { Redis } from 'ioredis';
-import { config } from '../../config.js';
+import { redis } from '../../redis.js';
 import { QdrantService } from '../ai/qdrant.js';
 import { EmbeddingService } from '../ai/embedding.js';
 import { SearchResult } from '@memora/shared';
 
 export class ProactiveService {
-  private redis: Redis;
+  private redis = redis;
   private embeddingService: EmbeddingService;
 
   constructor(
     private qdrantService: QdrantService,
   ) {
-    this.redis = new Redis(config.redis.url);
     this.embeddingService = new EmbeddingService();
   }
 
