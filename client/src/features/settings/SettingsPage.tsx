@@ -22,6 +22,16 @@ export default function SettingsPage() {
     toggleColorBlindMode
   } = useUiStore();
 
+  const [profileName, setProfileName] = useState(user?.name || '');
+  const [profileEmail, setProfileEmail] = useState(user?.email || '');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+
   const handleConnect = (provider: string) => {
     window.location.href = `/auth/${provider}`;
   };
@@ -31,6 +41,40 @@ export default function SettingsPage() {
       await disconnectMutation.mutateAsync(id);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    try {
+      const updated = await api.put('/api/account', { name: profileName, email: profileEmail });
+      useAuthStore.getState().setUser({ ...user!, name: updated.name, email: updated.email });
+      setProfileMessage('Profile updated successfully!');
+      setTimeout(() => setProfileMessage(null), 3000);
+    } catch (err: any) {
+      setProfileMessage(err.message || 'Failed to update profile');
+      setTimeout(() => setProfileMessage(null), 4000);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword || !newPassword) return;
+    setIsSavingPassword(true);
+    try {
+      await api.put('/api/account/password', { currentPassword, newPassword });
+      setCurrentPassword('');
+      setNewPassword('');
+      setPasswordMessage('Password changed successfully!');
+      setTimeout(() => setPasswordMessage(null), 3000);
+    } catch (err: any) {
+      setPasswordMessage(err.message || 'Failed to change password');
+      setTimeout(() => setPasswordMessage(null), 4000);
+    } finally {
+      setIsSavingPassword(false);
     }
   };
 
@@ -49,71 +93,143 @@ export default function SettingsPage() {
   };
 
   const integrationsList = [
-    { provider: 'slack', label: 'Slack Workspace', icon: MessageSquare, desc: 'Indexes team conversation history' },
-    { provider: 'notion', label: 'Notion Workspace', icon: BookOpen, desc: 'Syncs databases and text records' },
-    { provider: 'google', label: 'Google Workspace', icon: Globe, desc: 'Syncs Drive documents and calendar events' },
-    { provider: 'github', label: 'GitHub Repository', icon: Github, desc: 'Tracks readme, issues, and PR logs' },
+    { provider: 'slack', label: 'Slack', desc: 'Sync conversations and starred items', icon: MessageSquare },
+    { provider: 'notion', label: 'Notion', desc: 'Index shared team workspaces and pages', icon: BookOpen },
+    { provider: 'google', label: 'Google', desc: 'Sync calendar schedules and meetings', icon: Globe },
+    { provider: 'github', label: 'GitHub', desc: 'Index pull requests and repository docs', icon: Github },
   ];
 
   return (
-    <div className="flex gap-8 max-w-4xl mx-auto animate-fade-in">
-      <div className="w-48 shrink-0 flex flex-col gap-1 border-r border-memora-border pr-8">
+    <div className="flex flex-col md:flex-row gap-8 max-w-5xl mx-auto animate-fade-in font-sans">
+      {/* Navigation Sub-tabs */}
+      <div className="w-full md:w-56 flex flex-col gap-1 select-none">
+        <h1 className="text-xl font-bold text-white mb-4">Settings</h1>
         <button
           onClick={() => setActiveSubTab('profile')}
-          className={`px-4 py-2 text-left rounded text-sm font-semibold transition-colors ${
-            activeSubTab === 'profile' ? 'bg-memora-border text-white' : 'text-memora-text-muted hover:text-white'
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeSubTab === 'profile'
+              ? 'bg-memora-accent text-white'
+              : 'text-memora-text-muted hover:text-white hover:bg-memora-surface'
           }`}
         >
-          Profile settings
+          Profile
         </button>
         <button
           onClick={() => setActiveSubTab('integrations')}
-          className={`px-4 py-2 text-left rounded text-sm font-semibold transition-colors ${
-            activeSubTab === 'integrations' ? 'bg-memora-border text-white' : 'text-memora-text-muted hover:text-white'
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeSubTab === 'integrations'
+              ? 'bg-memora-accent text-white'
+              : 'text-memora-text-muted hover:text-white hover:bg-memora-surface'
           }`}
         >
           Integrations
         </button>
         <button
           onClick={() => setActiveSubTab('preferences')}
-          className={`px-4 py-2 text-left rounded text-sm font-semibold transition-colors ${
-            activeSubTab === 'preferences' ? 'bg-memora-border text-white' : 'text-memora-text-muted hover:text-white'
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeSubTab === 'preferences'
+              ? 'bg-memora-accent text-white'
+              : 'text-memora-text-muted hover:text-white hover:bg-memora-surface'
           }`}
         >
-          Preferences
+          Accessibility
         </button>
         <button
           onClick={() => setActiveSubTab('billing')}
-          className={`px-4 py-2 text-left rounded text-sm font-semibold transition-colors ${
-            activeSubTab === 'billing' ? 'bg-memora-border text-white' : 'text-memora-text-muted hover:text-white'
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeSubTab === 'billing'
+              ? 'bg-memora-accent text-white'
+              : 'text-memora-text-muted hover:text-white hover:bg-memora-surface'
           }`}
         >
-          Plan & Billing
+          Plans & Billing
         </button>
       </div>
 
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col gap-6">
         {activeSubTab === 'profile' && (
-          <div className="glass p-6 rounded-xl flex flex-col gap-4">
-            <h2 className="text-lg font-bold text-white">Profile Details</h2>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-memora-text-muted">Display Name</label>
-              <input
-                type="text"
-                value={user?.name || ''}
-                readOnly
-                className="bg-memora-bg border border-memora-border rounded px-4 py-2 text-white"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-memora-text-muted">Email address</label>
-              <input
-                type="email"
-                value={user?.email || ''}
-                readOnly
-                className="bg-memora-bg border border-memora-border rounded px-4 py-2 text-white"
-              />
-            </div>
+          <div className="flex flex-col gap-6">
+            <form onSubmit={handleSaveProfile} className="glass p-6 rounded-xl flex flex-col gap-4">
+              <h2 className="text-lg font-bold text-white">Profile Details</h2>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-memora-text-muted">Display Name</label>
+                <input
+                  type="text"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="bg-memora-bg border border-memora-border rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-memora-accent"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-memora-text-muted">Email Address</label>
+                <input
+                  type="email"
+                  value={profileEmail}
+                  onChange={(e) => setProfileEmail(e.target.value)}
+                  className="bg-memora-bg border border-memora-border rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-memora-accent"
+                />
+              </div>
+
+              {profileMessage && (
+                <span className={`text-xs font-medium ${profileMessage.includes('success') ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {profileMessage}
+                </span>
+              )}
+
+              <div className="flex justify-end mt-2">
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="px-4 py-2 bg-memora-accent text-white font-semibold rounded-lg text-xs hover:bg-memora-accent-hover disabled:opacity-50 cursor-pointer shadow-lg shadow-memora-accent-glow"
+                >
+                  {isSavingProfile ? 'Saving...' : 'Save Profile Changes'}
+                </button>
+              </div>
+            </form>
+
+            <form onSubmit={handleChangePassword} className="glass p-6 rounded-xl flex flex-col gap-4">
+              <h2 className="text-lg font-bold text-white">Change Password</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-memora-text-muted">Current Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="bg-memora-bg border border-memora-border rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-memora-accent"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-memora-text-muted">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="bg-memora-bg border border-memora-border rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-memora-accent"
+                  />
+                </div>
+              </div>
+
+              {passwordMessage && (
+                <span className={`text-xs font-medium ${passwordMessage.includes('success') ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {passwordMessage}
+                </span>
+              )}
+
+              <div className="flex justify-end mt-2">
+                <button
+                  type="submit"
+                  disabled={isSavingPassword || !currentPassword || !newPassword}
+                  className="px-4 py-2 bg-memora-accent text-white font-semibold rounded-lg text-xs hover:bg-memora-accent-hover disabled:opacity-50 cursor-pointer shadow-lg shadow-memora-accent-glow"
+                >
+                  {isSavingPassword ? 'Updating...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
 

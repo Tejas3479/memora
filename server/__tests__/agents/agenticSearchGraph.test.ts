@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgenticSearchGraph } from '../../src/agents/agenticSearchGraph.js';
+import { AgenticSearchGraph, reciprocalRankFusion } from '../../src/agents/agenticSearchGraph.js';
 import { QdrantService } from '../../src/services/ai/qdrant.js';
 import { SynthesisService } from '../../src/services/ai/synthesis.js';
 
@@ -47,5 +47,21 @@ describe('AgenticSearchGraph Reasoning Engine', () => {
     expect(ids).toContain('m-1');
     expect(ids).toContain('m-2');
     expect(ids).toContain('m-shared');
+  });
+
+  it('should rank items present across multiple lists higher using RRF', () => {
+    const list1 = [
+      { id: 'item-a', title: 'A', content: 'A', url: '', source: 'note', timestamp: 1, score: 0.7, chunkId: 'c1', metadata: {} },
+      { id: 'item-multi', title: 'Multi', content: 'Multi', url: '', source: 'note', timestamp: 1, score: 0.6, chunkId: 'c2', metadata: {} },
+    ];
+    const list2 = [
+      { id: 'item-multi', title: 'Multi', content: 'Multi', url: '', source: 'note', timestamp: 1, score: 0.6, chunkId: 'c2', metadata: {} },
+      { id: 'item-b', title: 'B', content: 'B', url: '', source: 'note', timestamp: 1, score: 0.7, chunkId: 'c3', metadata: {} },
+    ];
+
+    const fused = reciprocalRankFusion([list1, list2]);
+    expect(fused.length).toBe(3);
+    // item-multi appears in both lists so its RRF score must place it top
+    expect(fused[0].id).toBe('item-multi');
   });
 });

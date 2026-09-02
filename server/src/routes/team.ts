@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
 import { teamAuthMiddleware, requireTeamRole } from '../middleware/teamAuth.js';
 import { prisma } from '../prisma.js';
+import { ValidationError } from '../lib/errors.js';
 import { teamCreateSchema, teamInviteSchema } from '@memora/shared';
 
 export default async function teamRoutes(fastify: FastifyInstance) {
@@ -9,23 +10,25 @@ export default async function teamRoutes(fastify: FastifyInstance) {
     const userId = request.user!.userId;
     const result = teamCreateSchema.safeParse(request.body);
     if (!result.success) {
-      throw new Error(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
     }
     const { name } = result.data;
 
-    const team = await prisma.team.create({
-      data: { name },
-    });
+    return prisma.$transaction(async (tx) => {
+      const team = await tx.team.create({
+        data: { name },
+      });
 
-    await prisma.teamMember.create({
-      data: {
-        userId,
-        teamId: team.id,
-        role: 'owner',
-      },
-    });
+      await tx.teamMember.create({
+        data: {
+          userId,
+          teamId: team.id,
+          role: 'owner',
+        },
+      });
 
-    return team;
+      return team;
+    });
   });
 
   fastify.get('/api/teams', { preHandler: authMiddleware }, async (request) => {
@@ -54,7 +57,7 @@ export default async function teamRoutes(fastify: FastifyInstance) {
     const { teamId } = request.params as any;
     const result = teamInviteSchema.safeParse(request.body);
     if (!result.success) {
-      throw new Error(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
     }
     const { email, role = 'member' } = result.data;
 

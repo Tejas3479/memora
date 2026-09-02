@@ -6,3 +6,6 @@ export * from './team';
 export * from './comment';
 export * from './highlight';
 export * from './summarize';
+export * from './folder';
+export * from './people';
+export * from './settings';

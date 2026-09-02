@@ -2,7 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
 import { prisma } from '../prisma.js';
 import { PeopleService } from '../services/domain/people.js';
-import { NotFoundError } from '../lib/errors.js';
+import { NotFoundError, ValidationError } from '../lib/errors.js';
+import { personCreateSchema, personUpdateSchema } from '@memora/shared';
 
 export default async function peopleRoutes(fastify: FastifyInstance) {
   fastify.get('/api/people', { preHandler: authMiddleware }, async (request) => {
@@ -15,7 +16,11 @@ export default async function peopleRoutes(fastify: FastifyInstance) {
 
   fastify.post('/api/people', { preHandler: authMiddleware }, async (request) => {
     const userId = request.user!.userId;
-    const { name, email, company, role, notes } = request.body as any;
+    const result = personCreateSchema.safeParse(request.body);
+    if (!result.success) {
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+    }
+    const { name, email, company, role, notes } = result.data;
 
     const people = new PeopleService(prisma);
     return people.upsertPerson(userId, { name, email, company, role, notes });
@@ -33,7 +38,11 @@ export default async function peopleRoutes(fastify: FastifyInstance) {
   fastify.put('/api/people/:id', { preHandler: authMiddleware }, async (request) => {
     const userId = request.user!.userId;
     const { id } = request.params as any;
-    const body = request.body as any;
+    const result = personUpdateSchema.safeParse(request.body);
+    if (!result.success) {
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+    }
+    const body = result.data;
 
     const existing = await prisma.person.findFirst({ where: { id, userId } });
     if (!existing) throw new NotFoundError('Person not found');
@@ -41,11 +50,11 @@ export default async function peopleRoutes(fastify: FastifyInstance) {
     return prisma.person.update({
       where: { id },
       data: {
-        name: body.name,
-        email: body.email,
-        company: body.company,
-        role: body.role,
-        notes: body.notes,
+        name: body.name ?? existing.name,
+        email: body.email ?? existing.email,
+        company: body.company ?? existing.company,
+        role: body.role ?? existing.role,
+        notes: body.notes ?? existing.notes,
       },
     });
   });

@@ -167,20 +167,35 @@ export default function SearchPage() {
                 Citations & References
               </span>
               <div className="flex flex-wrap gap-2">
-                {synthesizedAnswer.sources.map((src, i) => (
-                  <a
-                    key={i}
-                    href={src.url || '#'}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={src.title}
-                    className="bg-[#7c3aed]/10 border border-[#7c3aed]/20 text-xs px-3 py-1 rounded-full hover:bg-[#7c3aed]/20 transition-all duration-200 flex items-center gap-1.5 text-white/90 hover:border-memora-accent"
-                  >
-                    <span className="font-mono">[{i + 1}]</span>
-                    <span className="truncate max-w-xs">{src.title}</span>
-                    <ExternalLink size={12} className="text-memora-text-muted shrink-0" />
-                  </a>
-                ))}
+                {synthesizedAnswer.sources.map((src, i) => {
+                  const isWeb = src.url?.startsWith('http://') || src.url?.startsWith('https://');
+                  if (isWeb) {
+                    return (
+                      <a
+                        key={i}
+                        href={src.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={src.title}
+                        className="bg-[#7c3aed]/10 border border-[#7c3aed]/20 text-xs px-3 py-1 rounded-full hover:bg-[#7c3aed]/20 transition-all duration-200 flex items-center gap-1.5 text-white/90 hover:border-memora-accent cursor-pointer"
+                      >
+                        <span className="font-mono text-memora-accent font-semibold">[{i + 1}]</span>
+                        <span className="truncate max-w-xs">{src.title}</span>
+                        <ExternalLink size={12} className="text-memora-text-muted shrink-0" />
+                      </a>
+                    );
+                  }
+                  return (
+                    <div
+                      key={i}
+                      title={src.title}
+                      className="bg-white/5 border border-white/10 text-xs px-3 py-1 rounded-full flex items-center gap-1.5 text-white/90"
+                    >
+                      <span className="font-mono text-memora-accent font-semibold">[{i + 1}]</span>
+                      <span className="truncate max-w-xs">{src.title}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

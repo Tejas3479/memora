@@ -8,7 +8,17 @@ import { authMiddleware } from '../middleware/auth.js';
 import { loginRequestSchema, registerRequestSchema } from '@memora/shared';
 
 export default async function authRoutes(fastify: FastifyInstance) {
-  fastify.post('/auth/register', async (request, reply) => {
+  fastify.post(
+    '/auth/register',
+    {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: '1 hour',
+        },
+      },
+    },
+    async (request, reply) => {
     const result = registerRequestSchema.safeParse(request.body);
     if (!result.success) {
       throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
@@ -62,7 +72,17 @@ export default async function authRoutes(fastify: FastifyInstance) {
     });
   });
 
-  fastify.post('/auth/login', async (request, reply) => {
+  fastify.post(
+    '/auth/login',
+    {
+      config: {
+        rateLimit: {
+          max: 15,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async (request, reply) => {
     const result = loginRequestSchema.safeParse(request.body);
     if (!result.success) {
       throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
@@ -110,7 +130,17 @@ export default async function authRoutes(fastify: FastifyInstance) {
     };
   });
 
-  fastify.post('/auth/refresh', async (request, reply) => {
+  fastify.post(
+    '/auth/refresh',
+    {
+      config: {
+        rateLimit: {
+          max: 45,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async (request, reply) => {
     const token = request.cookies.refreshToken || (request.body as any)?.refreshToken;
     if (!token) {
       throw new UnauthorizedError('Refresh token is missing');

@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
 import { prisma } from '../prisma.js';
 import { FolderService } from '../services/domain/folder.js';
+import { ValidationError } from '../lib/errors.js';
+import { folderCreateSchema, folderUpdateSchema, folderAddMemoriesSchema } from '@memora/shared';
 
 export default async function foldersRoutes(fastify: FastifyInstance) {
   fastify.get('/api/folders', { preHandler: authMiddleware }, async (request) => {
@@ -12,7 +14,11 @@ export default async function foldersRoutes(fastify: FastifyInstance) {
 
   fastify.post('/api/folders', { preHandler: authMiddleware }, async (request) => {
     const userId = request.user!.userId;
-    const { name, description, parentId, color, icon } = request.body as any;
+    const result = folderCreateSchema.safeParse(request.body);
+    if (!result.success) {
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+    }
+    const { name, description, parentId, color, icon } = result.data;
 
     const folders = new FolderService(prisma);
     return folders.create(userId, { name, description, parentId, color, icon });
@@ -21,10 +27,13 @@ export default async function foldersRoutes(fastify: FastifyInstance) {
   fastify.put('/api/folders/:id', { preHandler: authMiddleware }, async (request) => {
     const userId = request.user!.userId;
     const { id } = request.params as any;
-    const body = request.body as any;
+    const result = folderUpdateSchema.safeParse(request.body);
+    if (!result.success) {
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+    }
 
     const folders = new FolderService(prisma);
-    return folders.update(id, userId, body);
+    return folders.update(id, userId, result.data as any);
   });
 
   fastify.delete('/api/folders/:id', { preHandler: authMiddleware }, async (request) => {
@@ -39,10 +48,13 @@ export default async function foldersRoutes(fastify: FastifyInstance) {
   fastify.post('/api/folders/:id/memories', { preHandler: authMiddleware }, async (request) => {
     const userId = request.user!.userId;
     const { id } = request.params as any;
-    const { memoryIds = [] } = request.body as any;
+    const result = folderAddMemoriesSchema.safeParse(request.body);
+    if (!result.success) {
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+    }
 
     const folders = new FolderService(prisma);
-    const updatedCount = await folders.addMemories(id, userId, memoryIds);
+    const updatedCount = await folders.addMemories(id, userId, result.data.memoryIds);
     return { success: true, count: updatedCount };
   });
 

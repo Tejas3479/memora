@@ -13,10 +13,51 @@ const SearchAgentState = Annotation.Root({
   filters: Annotation<any>(),
   queries: Annotation<string[]>({ reducer: (x, y) => y, default: () => [] }),
   rawResults: Annotation<SearchResult[]>({ reducer: (x, y) => y, default: () => [] }),
+  iterationCount: Annotation<number>({ reducer: (x, y) => y, default: () => 0 }),
+  isSufficient: Annotation<boolean>({ reducer: (x, y) => y, default: () => false }),
   synthesizedAnswer: Annotation<any>({ reducer: (x, y) => y, default: () => null }),
 });
 
 type StateType = typeof SearchAgentState.State;
+
+/**
+ * Fuses and re-ranks search results using Reciprocal Rank Fusion (RRF).
+ * rrfScore = sum(1 / (k + rank)) with standard k = 60.
+ */
+export function reciprocalRankFusion(resultLists: SearchResult[][], k: number = 60): SearchResult[] {
+  const scoreMap = new Map<string, { item: SearchResult; rrfScore: number; bestScore: number }>();
+
+  for (const list of resultLists) {
+    list.forEach((item, index) => {
+      const rank = index + 1;
+      const rrfIncrement = 1 / (k + rank);
+      const existing = scoreMap.get(item.id);
+
+      const currentScore = item.score ?? 0;
+      if (!existing) {
+        scoreMap.set(item.id, {
+          item: { ...item },
+          rrfScore: rrfIncrement,
+          bestScore: currentScore,
+        });
+      } else {
+        existing.rrfScore += rrfIncrement;
+        existing.bestScore = Math.max(existing.bestScore, currentScore);
+        if ((item.content?.length || 0) > (existing.item.content?.length || 0)) {
+          existing.item = { ...item };
+        }
+      }
+    });
+  }
+
+  // Sort candidates by combined RRF score
+  return Array.from(scoreMap.values())
+    .sort((a, b) => b.rrfScore - a.rrfScore)
+    .map(({ item, rrfScore, bestScore }) => ({
+      ...item,
+      score: Math.min(1, Math.round((bestScore * 0.6 + rrfScore * 20 * 0.4) * 1000) / 1000),
+    }));
+}
 
 export class AgenticSearchGraph {
   private embeddingService: EmbeddingService;
@@ -81,35 +122,60 @@ JSON Array:`;
     return [query.trim()];
   }
 
+  /**
+   * Reformulates and widens queries when the initial retrieval yields poor relevance.
+   */
+  public async reformulateQuery(query: string): Promise<string[]> {
+    const stopWords = new Set(['what', 'when', 'where', 'which', 'who', 'whom', 'whose', 'why', 'how', 'is', 'was', 'are', 'were', 'the', 'a', 'an', 'in', 'on', 'at', 'about']);
+    const keywords = query
+      .replace(/[^\w\s]/gi, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !stopWords.has(w.toLowerCase()));
+
+    if (keywords.length > 0) {
+      return [keywords.join(' '), query];
+    }
+    return [query];
+  }
+
   private compileGraph() {
     const workflow = new StateGraph(SearchAgentState)
       .addNode('planSearch', async (state: StateType) => {
         const queries = await this.decomposeQuery(state.query);
-        return { queries };
+        return { queries, iterationCount: 0 };
       })
       .addNode('executeSearch', async (state: StateType) => {
-        const results: SearchResult[] = [];
+        const resultLists: SearchResult[][] = [];
         for (const q of state.queries) {
-          const queryVector = await this.embeddingService.embedSingle(q);
-          const res = await this.qdrantService.hybridSearch({
-            userId: state.userId,
-            vector: queryVector,
-            query: q,
-            filters: state.filters,
-            limit: 5,
-          });
-          results.push(...res);
+          try {
+            const queryVector = await this.embeddingService.embedSingle(q);
+            const res = await this.qdrantService.hybridSearch({
+              userId: state.userId,
+              vector: queryVector,
+              query: q,
+              filters: state.filters,
+              limit: 5,
+            });
+            resultLists.push(res);
+          } catch (err) {
+            console.warn(`[AgenticSearchGraph] Search error for "${q}":`, err);
+          }
         }
-        return { rawResults: results };
+        const fused = reciprocalRankFusion(resultLists);
+        return { rawResults: fused };
       })
-      .addNode('mergeAndDeduplicate', async (state: StateType) => {
-        const seen = new Set<string>();
-        const deduplicated = state.rawResults.filter((r) => {
-          if (seen.has(r.id)) return false;
-          seen.add(r.id);
-          return true;
-        });
-        return { rawResults: deduplicated };
+      .addNode('evaluateRetrieval', async (state: StateType) => {
+        const hasResults = state.rawResults.length > 0;
+        const topScore = hasResults ? (state.rawResults[0].score || 0) : 0;
+        const isSufficient = hasResults && (topScore >= 0.4 || state.iterationCount >= 1);
+        return { isSufficient };
+      })
+      .addNode('reformulate', async (state: StateType) => {
+        const reformulatedQueries = await this.reformulateQuery(state.query);
+        return {
+          queries: reformulatedQueries,
+          iterationCount: (state.iterationCount || 0) + 1,
+        };
       })
       .addNode('synthesize', async (state: StateType) => {
         const answer = await this.synthesisService.synthesize(state.query, state.rawResults);
@@ -119,15 +185,23 @@ JSON Array:`;
     return workflow
       .addEdge('__start__', 'planSearch')
       .addEdge('planSearch', 'executeSearch')
-      .addEdge('executeSearch', 'mergeAndDeduplicate')
-      .addEdge('mergeAndDeduplicate', 'synthesize')
+      .addEdge('executeSearch', 'evaluateRetrieval')
+      .addConditionalEdges(
+        'evaluateRetrieval',
+        (state: StateType) => (state.isSufficient ? 'synthesize' : 'reformulate'),
+        {
+          synthesize: 'synthesize',
+          reformulate: 'reformulate',
+        },
+      )
+      .addEdge('reformulate', 'executeSearch')
       .addEdge('synthesize', '__end__')
       .compile();
   }
 
   /**
-   * Runs the planning and retrieval steps of the agentic graph, returning candidate results and sub-queries.
-   * Useful for SSE streaming search routes.
+   * Runs the planning, retrieval, and RRF re-ranking steps of the agentic graph,
+   * returning candidate results and sub-queries.
    */
   public async planAndRetrieve(input: {
     userId: string;
@@ -135,7 +209,7 @@ JSON Array:`;
     filters?: any;
   }): Promise<{ results: SearchResult[]; subQueries: string[] }> {
     const subQueries = await this.decomposeQuery(input.query);
-    const results: SearchResult[] = [];
+    const resultLists: SearchResult[][] = [];
 
     await Promise.all(
       subQueries.map(async (q) => {
@@ -148,23 +222,17 @@ JSON Array:`;
             filters: input.filters,
             limit: 5,
           });
-          results.push(...res);
+          resultLists.push(res);
         } catch (err) {
           console.warn(`[AgenticSearchGraph] Search failed for sub-query "${q}":`, err);
         }
       }),
     );
 
-    // Deduplicate candidate results
-    const seen = new Set<string>();
-    const deduplicated = results.filter((r) => {
-      if (seen.has(r.id)) return false;
-      seen.add(r.id);
-      return true;
-    });
+    const fusedResults = reciprocalRankFusion(resultLists);
 
     return {
-      results: deduplicated,
+      results: fusedResults,
       subQueries,
     };
   }
@@ -177,6 +245,8 @@ JSON Array:`;
       filters: input.filters,
       queries: [],
       rawResults: [],
+      iterationCount: 0,
+      isSufficient: false,
       synthesizedAnswer: null,
     });
 

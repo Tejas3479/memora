@@ -90,6 +90,41 @@ export function useCreateTeamMutation() {
   });
 }
 
+export function useTeamDetailsQuery(teamId: string) {
+  return useQuery({
+    queryKey: ['teams', teamId],
+    queryFn: async () => {
+      if (!teamId) return null;
+      return api.get(`/api/teams/${teamId}`);
+    },
+    enabled: Boolean(teamId),
+  });
+}
+
+export function useInviteTeamMemberMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, email, role }: { teamId: string; email: string; role?: string }) =>
+      api.post(`/api/teams/${teamId}/invite`, { email, role }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['teams', variables.teamId] });
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+  });
+}
+
+export function useRemoveTeamMemberMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, userId }: { teamId: string; userId: string }) =>
+      api.delete(`/api/teams/${teamId}/members/${userId}`),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['teams', variables.teamId] });
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+  });
+}
+
 // ─── Automations Queries & Mutations ─────────────────────────────────────────
 
 export function useAutomationsQuery() {
@@ -124,6 +159,16 @@ export function useToggleAutomationMutation() {
   return useMutation({
     mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
       api.put(`/api/automations/${id}`, { enabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['automations'] });
+    },
+  });
+}
+
+export function useDeleteAutomationMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/automations/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['automations'] });
     },
