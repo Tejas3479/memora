@@ -42,3 +42,7 @@ extension/dist/
 
 # Qdrant local storage
 qdrant_storage/
+
+# HackForge artifacts
+hackforge/
+.hackforge/
