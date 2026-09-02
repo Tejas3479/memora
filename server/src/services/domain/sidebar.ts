@@ -59,5 +59,25 @@ export class SidebarService {
 
     return actions;
   }
+
+  public async getRecentSuggestions(
+    userId: string,
+    prismaClient: any,
+  ): Promise<Array<{ id: string; title: string; source: string; url: string; score: number }>> {
+    const recentMemories = await prismaClient.memory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 6,
+      select: { id: true, title: true, source: true, url: true, createdAt: true },
+    });
+
+    return recentMemories.map((m: any, idx: number) => ({
+      id: m.id,
+      title: `Review: ${m.title || 'Untitled capture'}`,
+      source: m.source,
+      url: m.url,
+      score: Math.max(0.4, Number((0.95 - idx * 0.08).toFixed(2))),
+    }));
+  }
 }
 export default SidebarService;

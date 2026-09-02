@@ -53,7 +53,7 @@ export async function automationProcessor(job: Job<AutomationRunnerPayload>): Pr
             await qdrant.setPayload('memories', {
               payload: { 'metadata.tags': updatedTags },
               filter: {
-                must: [{ key: 'memoryId', match: { value: memoryId } }],
+                must: [{ key: 'metadata.memoryId', match: { value: memoryId } }],
               },
             });
           } catch (qErr) {
@@ -80,7 +80,7 @@ export async function automationProcessor(job: Job<AutomationRunnerPayload>): Pr
           await qdrant.setPayload('memories', {
             payload: { folderId: destFolderId || null },
             filter: {
-              must: [{ key: 'memoryId', match: { value: memoryId } }],
+              must: [{ key: 'metadata.memoryId', match: { value: memoryId } }],
             },
           });
         } catch (qErr) {

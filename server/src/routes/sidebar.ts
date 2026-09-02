@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
 import { SidebarService } from '../services/domain/sidebar.js';
 import { QdrantService } from '../services/ai/qdrant.js';
+import { prisma } from '../prisma.js';
 
 const qdrant = new QdrantService();
 const sidebar = new SidebarService(qdrant);
@@ -21,10 +22,10 @@ export default async function sidebarRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get('/api/sidebar/suggestions', { preHandler: authMiddleware }, async (request) => {
+    const userId = request.user!.userId;
+    const suggestions = await sidebar.getRecentSuggestions(userId, prisma);
     return {
-      suggestions: [
-        { title: 'Read scaling Qdrant logs', score: 0.8 },
-      ],
+      suggestions,
     };
   });
 }

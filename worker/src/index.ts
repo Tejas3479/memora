@@ -16,7 +16,9 @@ import { digestProcessor } from './processors/digest.js';
 import { loopRunnerProcessor } from './processors/loopRunner.js';
 import { integrationPollProcessor } from './processors/integrationPoll.js';
 
-const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  maxRetriesPerRequest: null,
+});
 const logger = createLogger('WorkerMain');
 
 const wAutomation = new Worker(AUTOMATION_RUNNER_QUEUE, automationProcessor, { connection });
@@ -49,6 +51,7 @@ const shutdown = async () => {
     wIntegrations.close(),
     wLoops.close(),
   ]);
+  await connection.quit().catch(() => {});
   process.exit(0);
 };
 
