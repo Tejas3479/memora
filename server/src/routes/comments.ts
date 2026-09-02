@@ -13,6 +13,28 @@ export default async function commentsRoutes(fastify: FastifyInstance) {
     }
     const { memoryId, text, parentId } = result.data;
 
+    const memory = await prisma.memory.findFirst({
+      where: {
+        id: memoryId,
+        OR: [
+          { userId },
+          {
+            team: {
+              members: { some: { userId } },
+            },
+          },
+        ],
+      },
+    });
+    if (!memory) throw new NotFoundError('Memory not found or access denied');
+
+    if (parentId) {
+      const parent = await prisma.comment.findFirst({
+        where: { id: parentId, memoryId },
+      });
+      if (!parent) throw new ValidationError('Invalid parent comment ID');
+    }
+
     const comment = await prisma.comment.create({
       data: {
         userId,
@@ -31,7 +53,24 @@ export default async function commentsRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get('/api/comments/:memoryId', { preHandler: authMiddleware }, async (request) => {
+    const userId = request.user!.userId;
     const { memoryId } = request.params as any;
+
+    const memory = await prisma.memory.findFirst({
+      where: {
+        id: memoryId,
+        OR: [
+          { userId },
+          {
+            team: {
+              members: { some: { userId } },
+            },
+          },
+        ],
+      },
+    });
+    if (!memory) throw new NotFoundError('Memory not found or access denied');
+
     const comments = await prisma.comment.findMany({
       where: { memoryId },
       include: {

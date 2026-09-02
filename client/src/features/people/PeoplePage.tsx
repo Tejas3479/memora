@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { usePeopleQuery, useCreatePersonMutation } from '../../hooks/useQueries.js';
+import { useDebounce } from '../../hooks/useDebounce.js';
 import { Users, Mail, Building, Plus, X } from 'lucide-react';
 
 export default function PeoplePage() {
   const [query, setQuery] = useState('');
-  const { data: people = [], isLoading } = usePeopleQuery(query);
+  const debouncedQuery = useDebounce(query, 300);
+  const { data: people = [], isLoading } = usePeopleQuery(debouncedQuery);
   const createPersonMutation = useCreatePersonMutation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);

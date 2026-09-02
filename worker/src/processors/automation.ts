@@ -1,10 +1,8 @@
 import { Job } from 'bullmq';
-import { PrismaClient } from '@prisma/client';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AutomationRunnerPayload, AutomationRunnerResult } from '@memora/shared';
-
-const prisma = new PrismaClient();
+import { prisma } from '../prisma.js';
 const qdrant = new QdrantClient({
   url: process.env.QDRANT_URL || 'http://localhost:6333',
   checkCompatibility: false,
@@ -16,45 +14,68 @@ export async function automationProcessor(job: Job<AutomationRunnerPayload>): Pr
   const rule = await prisma.automationRule.findUnique({ where: { id: ruleId } });
   if (!rule) throw new Error(`Automation rule ${ruleId} not found`);
 
-  // Fetch memory details from Qdrant
-  const qRes = await qdrant.retrieve('memories', { ids: [memoryId] });
-  if (qRes.length === 0) throw new Error(`Memory point ${memoryId} not found in vector storage`);
-  
-  const point = qRes[0];
-  const payload = point.payload as any;
+  // Fetch memory details from PostgreSQL
+  const memory = await prisma.memory.findFirst({ where: { id: memoryId, userId } });
+  if (!memory) throw new Error(`Memory ${memoryId} not found`);
 
   const result: AutomationRunnerResult = {
     actionsExecuted: 0,
     results: [],
   };
 
-  const actions = rule.actions as string[];
+  const actions = (rule.actions as string[]) || [];
   for (const action of actions) {
     let success = true;
     let detail = '';
 
     try {
       if (action === 'TAG') {
-        const currentTags = payload.metadata?.tags || [];
-        const newTag = (rule.actionConfig as any).tag || 'auto';
+        const currentMeta = (memory.metadata as Record<string, any>) || {};
+        const currentTags = Array.isArray(currentMeta.tags) ? currentMeta.tags : [];
+        const newTag = (rule.actionConfig as any)?.tag || 'auto';
         if (!currentTags.includes(newTag)) {
-          payload.metadata = {
-            ...(payload.metadata || {}),
-            tags: [...currentTags, newTag],
-          };
-          await qdrant.upsert('memories', {
-            wait: true,
-            points: [{ id: memoryId, vector: point.vector as number[], payload }],
+          const updatedTags = [...currentTags, newTag];
+          await prisma.memory.update({
+            where: { id: memoryId },
+            data: {
+              metadata: {
+                ...currentMeta,
+                tags: updatedTags,
+              },
+            },
           });
+
+          try {
+            await qdrant.setPayload('memories', {
+              payload: { 'metadata.tags': updatedTags },
+              filter: {
+                must: [{ key: 'memoryId', match: { value: memoryId } }],
+              },
+            });
+          } catch (qErr) {
+            console.warn('[AutomationProcessor] Qdrant tag sync warning:', qErr);
+          }
           detail = `Tagged memory with ${newTag}`;
+        } else {
+          detail = `Memory already has tag ${newTag}`;
         }
       } else if (action === 'MOVE_FOLDER') {
-        const destFolderId = (rule.actionConfig as any).folderId;
-        payload.folderId = destFolderId;
-        await qdrant.upsert('memories', {
-          wait: true,
-          points: [{ id: memoryId, vector: point.vector as number[], payload }],
+        const destFolderId = (rule.actionConfig as any)?.folderId;
+        await prisma.memory.update({
+          where: { id: memoryId },
+          data: { folderId: destFolderId },
         });
+
+        try {
+          await qdrant.setPayload('memories', {
+            payload: { folderId: destFolderId },
+            filter: {
+              must: [{ key: 'memoryId', match: { value: memoryId } }],
+            },
+          });
+        } catch (qErr) {
+          console.warn('[AutomationProcessor] Qdrant folderId sync warning:', qErr);
+        }
         detail = `Moved to folder ${destFolderId}`;
       } else {
         detail = `Action ${action} executed.`;

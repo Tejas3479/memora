@@ -27,7 +27,6 @@ export class NoteService {
       meetingTitle: title,
     });
 
-    const memoryId = crypto.randomUUID();
     const timestamp = Math.floor(Date.now() / 1000);
 
     const mergedMetadata = {
@@ -40,34 +39,51 @@ export class NoteService {
       summary: enhanced.summary,
     };
 
-    // Chunk and embed the cleaned version of the content
+    // 1. Dual-write to PostgreSQL canonical Memory table
+    const noteUrl = `memora://notes/${crypto.randomUUID()}`;
+    const memory = await this.prisma.memory.create({
+      data: {
+        userId,
+        title,
+        content: enhanced.cleanedContent,
+        source: 'NOTE',
+        url: noteUrl,
+        metadata: mergedMetadata,
+      },
+    });
+    const memoryId = memory.id;
+
+    // 2. Chunk and embed the cleaned version of the content
     const chunks = this.chunker.chunk(enhanced.cleanedContent, {
       title,
-      url: `memora://notes/${memoryId}`,
-      source: 'note',
+      url: noteUrl,
+      source: 'NOTE',
       timestamp,
       userId,
     });
 
-    const textPieces = chunks.map((c) => c.text);
-    const vectors = await this.embeddingService.embed(textPieces);
+    if (chunks.length > 0) {
+      const textPieces = chunks.map((c) => c.text);
+      const vectors = await this.embeddingService.embed(textPieces);
 
-    const qPoints: QdrantPoint[] = chunks.map((chunk, i) => ({
-      id: chunk.id,
-      vector: vectors[i],
-      payload: {
-        userId,
-        chunkId: chunk.id,
-        source: 'note',
-        url: chunk.metadata.url,
-        title: chunk.metadata.title,
-        content: chunk.text,
-        timestamp,
-        metadata: mergedMetadata,
-      },
-    }));
+      const qPoints: QdrantPoint[] = chunks.map((chunk, i) => ({
+        id: chunk.id,
+        vector: vectors[i],
+        payload: {
+          userId,
+          chunkId: chunk.id,
+          memoryId,
+          source: 'NOTE',
+          url: chunk.metadata.url,
+          title: chunk.metadata.title,
+          content: chunk.text,
+          timestamp,
+          metadata: mergedMetadata,
+        },
+      }));
 
-    await this.qdrantService.upsertMemories(qPoints);
+      await this.qdrantService.upsertMemories(qPoints);
+    }
 
     return {
       memoryId,
@@ -75,21 +91,103 @@ export class NoteService {
     };
   }
 
-  public async update(memoryId: string, userId: string, content: string): Promise<void> {
-    // Fetch and re-index the note. In production, we'd delete old chunks first.
-    // For MVP, we simply re-index
-    await this.create(userId, content, 'Updated Note', { originalNoteId: memoryId });
+  public async update(memoryId: string, userId: string, content: string, title?: string): Promise<void> {
+    const memory = await this.prisma.memory.findFirst({
+      where: { id: memoryId, userId },
+    });
+    if (!memory) throw new Error('Note not found');
+
+    const noteTitle = title || memory.title;
+    const enhanced = await this.noteEnhancer.enhance(content, { meetingTitle: noteTitle });
+    const mergedMetadata = {
+      ...((memory.metadata as Record<string, any>) || {}),
+      enhanced: true,
+      actionItems: enhanced.actionItems,
+      keyDecisions: enhanced.keyDecisions,
+      participants: enhanced.participants,
+      topics: enhanced.topics,
+      summary: enhanced.summary,
+    };
+
+    await this.prisma.memory.update({
+      where: { id: memoryId },
+      data: {
+        title: noteTitle,
+        content: enhanced.cleanedContent,
+        metadata: mergedMetadata,
+      },
+    });
+
+    // Delete old chunks in Qdrant for this memoryId
+    try {
+      await this.qdrantService.ensureCollection();
+      await (this.qdrantService as any).client.delete('memories', {
+        filter: {
+          must: [{ key: 'memoryId', match: { value: memoryId } }],
+        },
+      });
+    } catch (e) {
+      console.warn('[NoteService] Failed to delete old Qdrant chunks on note update:', e);
+    }
+
+    // Re-chunk and upsert
+    const timestamp = Math.floor(Date.now() / 1000);
+    const chunks = this.chunker.chunk(enhanced.cleanedContent, {
+      title: noteTitle,
+      url: memory.url,
+      source: 'NOTE',
+      timestamp,
+      userId,
+    });
+
+    if (chunks.length > 0) {
+      const textPieces = chunks.map((c) => c.text);
+      const vectors = await this.embeddingService.embed(textPieces);
+
+      const qPoints: QdrantPoint[] = chunks.map((chunk, i) => ({
+        id: chunk.id,
+        vector: vectors[i],
+        payload: {
+          userId,
+          chunkId: chunk.id,
+          memoryId,
+          source: 'NOTE',
+          url: chunk.metadata.url,
+          title: chunk.metadata.title,
+          content: chunk.text,
+          timestamp,
+          metadata: mergedMetadata,
+        },
+      }));
+
+      await this.qdrantService.upsertMemories(qPoints);
+    }
   }
 
-  public async getEnhanced(memoryId: string): Promise<EnhancedNote> {
-    // Placeholder fetching from DB or metadata
+  public async getEnhanced(memoryId: string, userId?: string): Promise<EnhancedNote> {
+    const where: any = { id: memoryId };
+    if (userId) where.userId = userId;
+
+    const memory = await this.prisma.memory.findFirst({ where });
+    if (!memory) {
+      return {
+        cleanedContent: '',
+        actionItems: [],
+        keyDecisions: [],
+        participants: [],
+        topics: [],
+        summary: '',
+      };
+    }
+
+    const meta = (memory.metadata as Record<string, any>) || {};
     return {
-      cleanedContent: 'Enhanced note content details',
-      actionItems: [],
-      keyDecisions: [],
-      participants: [],
-      topics: [],
-      summary: 'Enhanced note representation summary.',
+      cleanedContent: memory.content,
+      actionItems: meta.actionItems || [],
+      keyDecisions: meta.keyDecisions || [],
+      participants: meta.participants || [],
+      topics: meta.topics || [],
+      summary: meta.summary || '',
     };
   }
 }

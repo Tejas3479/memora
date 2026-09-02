@@ -1,8 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
-import { QdrantService } from '../services/ai/qdrant.js';
-
-const qdrant = new QdrantService();
+import { prisma } from '../prisma.js';
 
 function createUncompressedZip(filename: string, content: string): Buffer {
   const contentBuf = Buffer.from(content, 'utf-8');
@@ -80,10 +78,29 @@ export default async function exportRoutes(fastify: FastifyInstance) {
     const userId = request.user!.userId;
     const { format = 'json' } = request.body as any;
 
-    const { results } = await qdrant.getTimeline(userId, 500, 0);
+    const memories = await prisma.memory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        folder: true,
+        highlights: true,
+      },
+    });
+
+    const exportData = memories.map((m) => ({
+      id: m.id,
+      title: m.title,
+      content: m.content,
+      source: m.source,
+      url: m.url,
+      folder: m.folder?.name || null,
+      highlights: m.highlights.map((h) => ({ text: h.text, note: h.note })),
+      createdAt: m.createdAt.toISOString(),
+      updatedAt: m.updatedAt.toISOString(),
+    }));
 
     if (format === 'zip') {
-      const jsonData = JSON.stringify(results, null, 2);
+      const jsonData = JSON.stringify(exportData, null, 2);
       const zipBuffer = createUncompressedZip('memora_export.json', jsonData);
       reply.header('Content-Type', 'application/zip');
       reply.header('Content-Disposition', 'attachment; filename="memora_export.zip"');
@@ -91,20 +108,21 @@ export default async function exportRoutes(fastify: FastifyInstance) {
     }
 
     if (format === 'csv') {
-      const headers = ['id', 'title', 'content', 'url', 'source', 'timestamp'];
-      const rows = results.map((r) => [
+      const headers = ['id', 'title', 'content', 'url', 'source', 'folder', 'createdAt'];
+      const rows = exportData.map((r) => [
         r.id,
         `"${r.title.replace(/"/g, '""')}"`,
         `"${r.content.replace(/"/g, '""')}"`,
         r.url,
         r.source,
-        new Date(Number(r.timestamp) * 1000).toISOString(),
+        `"${(r.folder || '').replace(/"/g, '""')}"`,
+        r.createdAt,
       ]);
       const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
       return { format: 'csv', data: csvContent };
     }
 
-    return { format: 'json', data: results };
+    return { format: 'json', data: exportData };
   });
 
   fastify.get('/api/export/status/:jobId', { preHandler: authMiddleware }, async () => {

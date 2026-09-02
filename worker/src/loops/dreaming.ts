@@ -1,11 +1,9 @@
 import { DreamingInput, DreamingOutput } from '@memora/shared';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { PrismaClient } from '@prisma/client';
 import { config } from '../config.js';
 import { QdrantService } from '../services/qdrant.js';
 import crypto from 'crypto';
-
-const prisma = new PrismaClient();
+import { prisma } from '../prisma.js';
 
 function cosineSimilarity(a: number[], b: number[]): number {
   if (!a || !b || a.length !== b.length || a.length === 0) return 0;

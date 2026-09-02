@@ -16,15 +16,21 @@ export default async function tabsRoutes(fastify: FastifyInstance) {
   fastify.get('/api/tabs', { preHandler: authMiddleware }, async (request) => {
     const userId = request.user!.userId;
 
-    const peopleCount = await prisma.person.count({ where: { userId } });
-    const foldersCount = await prisma.folder.count({ where: { userId } });
-    const automationsCount = await prisma.automationRule.count({ where: { userId } });
+    const [allCount, webCount, docCount, slackCount, peopleCount, foldersCount, automationsCount] = await Promise.all([
+      prisma.memory.count({ where: { userId } }),
+      prisma.memory.count({ where: { userId, source: 'WEB' } }),
+      prisma.memory.count({ where: { userId, source: { in: ['DOCUMENT', 'PDF', 'IMAGE'] } } }),
+      prisma.memory.count({ where: { userId, source: 'SLACK' } }),
+      prisma.person.count({ where: { userId } }),
+      prisma.folder.count({ where: { userId } }),
+      prisma.automationRule.count({ where: { userId } }),
+    ]);
 
     return {
-      all: 120,
-      web: 45,
-      documents: 15,
-      slack: 40,
+      all: allCount,
+      web: webCount,
+      documents: docCount,
+      slack: slackCount,
       people: peopleCount,
       folders: foldersCount,
       automations: automationsCount,
@@ -39,45 +45,54 @@ export default async function tabsRoutes(fastify: FastifyInstance) {
     };
 
     if (!tabs || !Array.isArray(tabs) || tabs.length === 0) {
-      return reply.status(400).send({ error: 'Tabs list must be a non-empty array' });
+      return reply.status(400).send({ error: 'No tabs provided' });
     }
 
-    let summary = '';
+    // Synthesize content from all tabs
+    const prompt = `Synthesize and summarize the key insights, shared themes, and takeaways across the following browser tabs:
+${tabs.map((t, i) => `\n[Tab ${i + 1}] Title: ${t.title}\nURL: ${t.url}\nContent snippet: ${t.content.slice(0, 1000)}...`).join('\n')}
 
-    if (!config.llm.googleApiKey) {
-      summary = "This is a mock cross-tab synthesis. Please configure your Google Gemini API Key to see real synthesis results.";
-    } else {
+Provide an organized summary in clean Markdown format.`;
+
+    let summary = '';
+    if (config.llm.googleApiKey) {
       try {
         const ai = new GoogleGenerativeAI(config.llm.googleApiKey);
         const model = ai.getGenerativeModel({ model: config.llm.model });
-
-        const formattedTabs = tabs
-          .map((t, idx) => `Tab ${idx + 1}: ${t.title} (${t.url})\nContent Snippet: ${t.content.slice(0, 1500)}`)
-          .join('\n\n');
-
-        const prompt = `You are a cross-tab synthesis engine for Memora. Below are the contents of several open tabs in the user's browser. Synthesize their contents, outline common themes, and provide a structured summary.\n\n${formattedTabs}`;
-
-        const genResult = await model.generateContent([prompt]);
-        summary = genResult.response.text() || '';
+        const res = await model.generateContent(prompt);
+        summary = res.response.text() || '';
       } catch (err) {
-        console.error('[TabsRoute] Gemini synthesis failed:', err);
-        summary = `[Synthesis Error: ${(err as Error).message}]`;
+        console.error('[TabsRoute] Gemini tabs synthesis failed:', err);
+        summary = 'Failed to synthesize tabs content due to model rate limits or availability.';
       }
+    } else {
+      summary = 'This is a mock cross-tab synthesis. Please configure your Google Gemini API Key to see real synthesis results.';
     }
 
     // Ingest tabs as memories if requested
     if (offerToIngest && tabs.length > 0) {
       try {
         for (const tab of tabs) {
-          const memoryId = crypto.randomUUID();
           const cleanContent = tab.content || '';
-          
+          const memory = await prisma.memory.create({
+            data: {
+              userId,
+              title: tab.title,
+              content: cleanContent,
+              source: 'WEB',
+              url: tab.url,
+              metadata: {},
+            },
+          });
+          const memoryId = memory.id;
+
           const chunks = chunker.chunk(cleanContent, {
             title: tab.title,
             url: tab.url,
             source: 'WEB',
             timestamp: Math.floor(Date.now() / 1000),
             userId,
+            memoryId,
           });
 
           if (chunks.length > 0) {
@@ -89,6 +104,7 @@ export default async function tabsRoutes(fastify: FastifyInstance) {
               payload: {
                 userId,
                 chunkId: chunk.id,
+                memoryId,
                 source: 'WEB',
                 url: tab.url,
                 title: tab.title,

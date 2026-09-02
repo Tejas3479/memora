@@ -46,6 +46,22 @@ export class FolderService {
     await this.prisma.folder.delete({
       where: { id: folderId },
     });
+
+    try {
+      const { QdrantService } = await import('../ai/qdrant.js');
+      const qdrant = new QdrantService();
+      await qdrant.ensureCollection();
+      await (qdrant as any).client.setPayload('memories', {
+        payload: { folderId: null },
+        filter: {
+          must: [
+            { key: 'folderId', match: { value: folderId } },
+          ],
+        },
+      });
+    } catch (err) {
+      console.warn('[FolderService] Could not clear folderId in Qdrant on delete:', err);
+    }
   }
 
   public async getTree(userId: string): Promise<any[]> {
@@ -85,7 +101,20 @@ export class FolderService {
     try {
       const { QdrantService } = await import('../ai/qdrant.js');
       const qdrant = new QdrantService();
-      await qdrant.setPayload(memoryIds, { folderId });
+      await qdrant.ensureCollection();
+      for (const memoryId of memoryIds) {
+        await (qdrant as any).client.setPayload('memories', {
+          payload: { folderId },
+          filter: {
+            must: [
+              {
+                key: 'memoryId',
+                match: { value: memoryId },
+              },
+            ],
+          },
+        });
+      }
     } catch (err) {
       console.warn('[FolderService] Could not sync folderId to Qdrant:', err);
     }

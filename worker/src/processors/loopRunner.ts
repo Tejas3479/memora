@@ -1,5 +1,4 @@
 import { Job } from 'bullmq';
-import { PrismaClient } from '@prisma/client';
 import { LoopType } from '@memora/shared';
 
 import { SelfReflectionLoop } from '../loops/selfReflection.js';
@@ -8,8 +7,8 @@ import { EvaluationLoop } from '../loops/evaluation.js';
 import { MultiAgentLoop } from '../loops/multiAgent.js';
 import { DreamingLoop } from '../loops/dreaming.js';
 import { QdrantService } from '../services/qdrant.js';
+import { prisma } from '../prisma.js';
 
-const prisma = new PrismaClient();
 const qdrant = new QdrantService();
 
 export async function loopRunnerProcessor(

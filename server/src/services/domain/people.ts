@@ -74,12 +74,26 @@ export class PeopleService {
     });
   }
 
-  public async getPersonWithMentions(personId: string): Promise<any> {
-    const person = await this.prisma.person.findUnique({
-      where: { id: personId },
+  public async getPersonWithMentions(personId: string, userId?: string): Promise<any> {
+    const where: any = { id: personId };
+    if (userId) where.userId = userId;
+
+    const person = await this.prisma.person.findFirst({
+      where,
       include: {
         mentions: {
           orderBy: { timestamp: 'desc' },
+          include: {
+            memory: {
+              select: {
+                id: true,
+                title: true,
+                url: true,
+                source: true,
+                createdAt: true,
+              },
+            },
+          },
         },
       },
     });

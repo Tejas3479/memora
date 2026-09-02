@@ -40,14 +40,19 @@ export class ZepService {
     }
   }
 
-  public async queryGraph(query: string, limit: number = 5): Promise<any[]> {
-    console.log('[ZepService] Query graph for query:', query);
+  public async queryGraph(userId: string, query: string, limit: number = 5): Promise<any[]> {
+    console.log('[ZepService] Query graph for user:', userId, 'query:', query);
     try {
-      const response = await fetch(`${this.endpoint}/api/v1/sessions/default/search`, {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (this.apiKey) {
+        headers['Authorization'] = `Bearer ${this.apiKey}`;
+      }
+
+      const response = await fetch(`${this.endpoint}/api/v1/sessions/${userId || 'default'}/search`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           text: query,
           limit,
@@ -61,17 +66,8 @@ export class ZepService {
       const body = await response.json();
       return body.results || [];
     } catch (err) {
-      console.warn('[ZepService] Failed to query Zep, using fallback facts:', err);
-      return [
-        {
-          fact: `User queried for "${query}" (Zep fallback).`,
-          confidence: 0.9,
-        },
-        {
-          fact: "User is working on Memora v4.1 monorepo development.",
-          confidence: 0.85,
-        }
-      ];
+      console.warn('[ZepService] Failed to query Zep:', err);
+      return [];
     }
   }
 

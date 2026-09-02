@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSearchStream } from '../../hooks/useSearchStream.js';
 import MemoryCard from '../../components/MemoryCard.js';
-import { Search, Filter, RefreshCw, Sparkles, ExternalLink, SearchCode, Square, Network } from 'lucide-react';
+import { Search, Filter, Sparkles, ExternalLink, SearchCode, Square, Network, AlertCircle } from 'lucide-react';
 
 export default function SearchPage() {
   const {
@@ -102,6 +102,22 @@ export default function SearchPage() {
           </div>
         )}
       </div>
+
+      {/* Search Error Alert */}
+      {error && (
+        <div className="glass p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 text-sm flex items-center justify-between animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle size={16} className="text-red-400 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => executeSearch(query, { source: sourceFilter || undefined })}
+            className="text-xs font-semibold px-3 py-1 bg-red-500/20 hover:bg-red-500/30 rounded text-red-200 transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Sub-Queries Decomposition Badge Banner */}
       {subQueries.length > 1 && (

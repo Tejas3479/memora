@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
 import { prisma } from '../prisma.js';
 import { createHighlightSchema } from '@memora/shared';
+import { NotFoundError } from '../lib/errors.js';
 
 export default async function highlightsRoutes(fastify: FastifyInstance) {
   fastify.post('/api/highlights', { preHandler: authMiddleware }, async (request, reply) => {
@@ -16,6 +17,16 @@ export default async function highlightsRoutes(fastify: FastifyInstance) {
     const { url, text, note, color, memoryId } = result.data;
 
     let resolvedMemoryId = memoryId;
+    if (resolvedMemoryId) {
+      const exists = await prisma.memory.findFirst({
+        where: { id: resolvedMemoryId, userId },
+        select: { id: true },
+      });
+      if (!exists) {
+        resolvedMemoryId = undefined;
+      }
+    }
+
     if (!resolvedMemoryId && url) {
       const match = await prisma.memory.findFirst({
         where: { userId, url },
@@ -80,7 +91,7 @@ export default async function highlightsRoutes(fastify: FastifyInstance) {
     });
 
     if (!highlight) {
-      throw new Error('Highlight not found');
+      throw new NotFoundError('Highlight not found');
     }
 
     await prisma.highlight.delete({

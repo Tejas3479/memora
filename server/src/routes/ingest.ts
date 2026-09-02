@@ -76,12 +76,14 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
       payload: {
         userId,
         chunkId: chunk.id,
+        memoryId,
         source,
         url,
         title,
         content: chunk.text,
         timestamp: docTimestamp,
-        metadata: { ...metadata, memoryId },
+        folderId: (metadata as any)?.folderId || null,
+        metadata: { ...metadata, memoryId, folderId: (metadata as any)?.folderId || null },
       },
     }));
 
@@ -113,7 +115,7 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
     };
   });
 
-  fastify.get('/uploads/:filename', async (request, reply) => {
+  fastify.get('/uploads/:filename', { preHandler: authMiddleware }, async (request, reply) => {
     const { filename } = request.params as any;
     const filePath = path.resolve(UPLOADS_DIR, filename);
     if (!filePath.startsWith(UPLOADS_DIR)) {
@@ -140,7 +142,9 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
 
     // Save locally
     await fs.promises.writeFile(filePath, buffer);
-    const fileUrl = `http://localhost:4000/uploads/${fileName}`;
+    const host = request.headers.host || 'localhost:4000';
+    const protocol = request.protocol || 'http';
+    const fileUrl = `${protocol}://${host}/uploads/${fileName}`;
 
     let text = '';
     let source = 'DOCUMENT';

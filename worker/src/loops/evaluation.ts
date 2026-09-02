@@ -1,7 +1,5 @@
 import { EvaluationInput, EvaluationOutput } from '@memora/shared';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../prisma.js';
 
 export class EvaluationLoop {
   public async execute(input: EvaluationInput): Promise<EvaluationOutput> {

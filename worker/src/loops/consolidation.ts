@@ -3,10 +3,7 @@ import { QdrantService } from '../services/qdrant.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config.js';
 import crypto from 'crypto';
-
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../prisma.js';
 
 export class ConsolidationLoop {
   private ai: GoogleGenerativeAI | null = null;

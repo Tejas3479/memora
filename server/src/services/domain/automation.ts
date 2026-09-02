@@ -1,23 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 import { Queue } from 'bullmq';
-import { config } from '../../config.js';
-import { AUTOMATION_RUNNER_QUEUE } from '@memora/shared';
+import { automationRunnerQueue } from '../../jobs/index.js';
 
 export class AutomationService {
   private queue: Queue | null = null;
 
   constructor(
     private prisma: PrismaClient,
+    queue?: Queue,
   ) {
-    try {
-      this.queue = new Queue(AUTOMATION_RUNNER_QUEUE, {
-        connection: {
-          url: config.redis.url,
-        },
-      });
-    } catch (err) {
-      console.warn('[AutomationService] Failed to establish BullMQ Queue connection:', err);
-    }
+    this.queue = queue || automationRunnerQueue;
   }
 
   public async evaluateRules(

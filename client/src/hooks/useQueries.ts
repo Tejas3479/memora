@@ -215,7 +215,7 @@ export function useBillingQuery() {
   return useQuery({
     queryKey: ['billing'],
     queryFn: async () => {
-      return api.get('/api/billing/subscription');
+      return api.get('/api/billing/status');
     },
   });
 }

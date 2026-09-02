@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { prisma } from '../prisma.js';
 import { AutomationService } from '../services/domain/automation.js';
 import { automationRuleCreateSchema, automationRuleUpdateSchema } from '@memora/shared';
+import { NotFoundError, ValidationError } from '../lib/errors.js';
 
 export default async function automationsRoutes(fastify: FastifyInstance) {
   fastify.get('/api/automations', { preHandler: authMiddleware }, async (request) => {
@@ -14,7 +15,7 @@ export default async function automationsRoutes(fastify: FastifyInstance) {
     const userId = request.user!.userId;
     const result = automationRuleCreateSchema.safeParse(request.body);
     if (!result.success) {
-      throw new Error(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
     }
     const { name, description, trigger, conditions, actions, actionConfig } = result.data;
 
@@ -36,12 +37,12 @@ export default async function automationsRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
     const result = automationRuleUpdateSchema.safeParse(request.body);
     if (!result.success) {
-      throw new Error(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
+      throw new ValidationError(result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '));
     }
     const body = result.data;
 
     const exists = await prisma.automationRule.findFirst({ where: { id, userId } });
-    if (!exists) throw new Error('Rule not found');
+    if (!exists) throw new NotFoundError('Rule not found');
 
     return prisma.automationRule.update({
       where: { id },
@@ -62,21 +63,36 @@ export default async function automationsRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
 
     const exists = await prisma.automationRule.findFirst({ where: { id, userId } });
-    if (!exists) throw new Error('Rule not found');
+    if (!exists) throw new NotFoundError('Rule not found');
 
     await prisma.automationRule.delete({ where: { id } });
     return { success: true };
   });
 
   fastify.get('/api/automations/:id/executions', { preHandler: authMiddleware }, async (request) => {
+    const userId = request.user!.userId;
     const { id } = request.params as any;
+
+    const exists = await prisma.automationRule.findFirst({ where: { id, userId } });
+    if (!exists) throw new NotFoundError('Rule not found');
+
     const auto = new AutomationService(prisma);
     return auto.getRuleExecutions(id);
   });
 
   fastify.post('/api/automations/:id/test', { preHandler: authMiddleware }, async (request) => {
+    const userId = request.user!.userId;
     const { id } = request.params as any;
     const { memoryId } = request.body as any;
+
+    const rule = await prisma.automationRule.findFirst({ where: { id, userId } });
+    if (!rule) throw new NotFoundError('Rule not found');
+
+    if (memoryId) {
+      const memory = await prisma.memory.findFirst({ where: { id: memoryId, userId } });
+      if (!memory) throw new NotFoundError('Memory not found');
+    }
+
     const auto = new AutomationService(prisma);
     return auto.executeAction(id, memoryId);
   });

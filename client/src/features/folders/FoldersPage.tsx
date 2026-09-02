@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFoldersQuery, useCreateFolderMutation, useDeleteFolderMutation } from '../../hooks/useQueries.js';
 import { FolderPlus, FolderClosed, Trash2, X, Plus } from 'lucide-react';
 
 export default function FoldersPage() {
+  const navigate = useNavigate();
   const { data: tree = [], isLoading } = useFoldersQuery();
   const createFolderMutation = useCreateFolderMutation();
   const deleteFolderMutation = useDeleteFolderMutation();
@@ -31,7 +33,10 @@ export default function FoldersPage() {
   const renderFolderNode = (node: any) => {
     return (
       <div key={node.id} className="flex flex-col gap-2 pl-4 border-l border-memora-border/60 ml-2 mt-1">
-        <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-memora-surface hover:text-memora-accent cursor-pointer group transition-all duration-200">
+        <div 
+          onClick={() => navigate(`/timeline?folderId=${node.id}`)}
+          className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-memora-surface hover:text-memora-accent cursor-pointer group transition-all duration-200"
+        >
           <div className="flex items-center gap-3 min-w-0">
             <FolderClosed size={16} className="text-memora-accent shrink-0" />
             <span className="text-sm text-white font-medium group-hover:text-memora-accent transition-colors truncate">{node.name}</span>

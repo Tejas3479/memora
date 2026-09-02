@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { useIntegrationsQuery, useDisconnectIntegrationMutation } from '../../hooks/useQueries.js';
+import { useIntegrationsQuery, useDisconnectIntegrationMutation, useBillingQuery } from '../../hooks/useQueries.js';
 import { useUiStore } from '../../store/uiStore.js';
-import { Globe, BookOpen, MessageSquare, Github, Eye, Sparkles, Sliders } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore.js';
+import { api } from '../../api/client.js';
+import { Globe, BookOpen, MessageSquare, Github } from 'lucide-react';
 
 export default function SettingsPage() {
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'integrations' | 'preferences' | 'billing'>('profile');
+  const { user } = useAuthStore();
   const { data: integrations = [] } = useIntegrationsQuery();
+  const { data: billingData } = useBillingQuery();
   const disconnectMutation = useDisconnectIntegrationMutation();
+  const [isUpgrading, setIsUpgrading] = useState(false);
 
   const {
     adhdFocusMode,
@@ -26,6 +31,20 @@ export default function SettingsPage() {
       await disconnectMutation.mutateAsync(id);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleUpgrade = async (plan: 'PRO' | 'TEAM') => {
+    try {
+      setIsUpgrading(true);
+      const res = await api.post('/api/billing/checkout', { plan });
+      if (res?.url) {
+        window.location.href = res.url;
+      }
+    } catch (err) {
+      console.error('[Billing Checkout Failed]:', err);
+    } finally {
+      setIsUpgrading(false);
     }
   };
 
@@ -81,8 +100,8 @@ export default function SettingsPage() {
               <label className="text-xs text-memora-text-muted">Display Name</label>
               <input
                 type="text"
-                value="John Doe"
-                disabled
+                value={user?.name || ''}
+                readOnly
                 className="bg-memora-bg border border-memora-border rounded px-4 py-2 text-white"
               />
             </div>
@@ -90,8 +109,8 @@ export default function SettingsPage() {
               <label className="text-xs text-memora-text-muted">Email address</label>
               <input
                 type="email"
-                value="user@example.com"
-                disabled
+                value={user?.email || ''}
+                readOnly
                 className="bg-memora-bg border border-memora-border rounded px-4 py-2 text-white"
               />
             </div>
@@ -104,7 +123,7 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 gap-4">
               {integrationsList.map((item) => {
                 const Icon = item.icon;
-                const active = integrations.find((i) => i.provider === item.provider);
+                const active = integrations.find((i: any) => i.provider?.toLowerCase() === item.provider.toLowerCase());
                 return (
                   <div key={item.provider} className="glass p-5 rounded-xl flex justify-between items-center">
                     <div className="flex items-center gap-4">
@@ -193,16 +212,29 @@ export default function SettingsPage() {
             <h2 className="text-lg font-bold text-white">Current Subscription</h2>
             <div className="flex justify-between items-center bg-memora-bg p-4 rounded border border-memora-border">
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-white">Memora Free tier</span>
-                <span className="text-xs text-memora-text-muted">Includes 1,000 ingestions/mo</span>
+                <span className="text-sm font-semibold text-white">
+                  Memora {billingData?.plan || user?.plan || 'FREE'} Tier
+                </span>
+                <span className="text-xs text-memora-text-muted">
+                  {billingData?.plan === 'PRO' || user?.plan === 'PRO'
+                    ? 'Unlimited ingestions & advanced agentic search'
+                    : 'Includes 1,000 ingestions/mo'}
+                </span>
               </div>
-              <span className="text-xs bg-memora-border text-white px-3 py-1 rounded font-semibold uppercase">
-                Active
+              <span className="text-xs bg-memora-accent/20 text-memora-accent border border-memora-accent/30 px-3 py-1 rounded font-semibold uppercase">
+                {billingData?.status || 'Active'}
               </span>
             </div>
-            <button className="py-2 rounded bg-memora-accent text-white font-semibold hover:bg-memora-accent-hover transition-all duration-300">
-              Upgrade to Pro ($9.99/mo)
-            </button>
+
+            {billingData?.plan !== 'PRO' && user?.plan !== 'PRO' && (
+              <button
+                disabled={isUpgrading}
+                onClick={() => handleUpgrade('PRO')}
+                className="py-2.5 rounded bg-memora-accent text-white font-semibold hover:bg-memora-accent-hover active:scale-[0.99] transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-memora-accent-glow"
+              >
+                {isUpgrading ? 'Redirecting to checkout...' : 'Upgrade to Pro ($9.99/mo)'}
+              </button>
+            )}
           </div>
         )}
       </div>

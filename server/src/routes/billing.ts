@@ -17,11 +17,22 @@ export default async function billingRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid plan selected' });
     }
 
-    // In local/test mode, bypass Stripe and upgrade immediately
+    // In local development without Stripe keys, simulate upgrade with active subscription record
     if (!config.stripe.secretKey) {
+      if (process.env.NODE_ENV === 'production') {
+        return reply.status(503).send({ error: 'Billing provider is not configured' });
+      }
       await prisma.user.update({
         where: { id: userId },
         data: { plan },
+      });
+      await prisma.subscription.create({
+        data: {
+          userId,
+          plan,
+          status: 'active',
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
       });
       return { url: `${config.server.corsOrigin}/settings?billing=success` };
     }
@@ -31,7 +42,7 @@ export default async function billingRoutes(fastify: FastifyInstance) {
         payment_method_types: ['card'],
         line_items: [
           {
-            price: plan === 'PRO' ? 'price_pro_default' : 'price_team_default',
+            price: plan === 'PRO' ? (process.env.STRIPE_PRICE_PRO || 'price_pro_default') : (process.env.STRIPE_PRICE_TEAM || 'price_team_default'),
             quantity: 1,
           },
         ],
@@ -44,12 +55,7 @@ export default async function billingRoutes(fastify: FastifyInstance) {
       return { url: session.url };
     } catch (err) {
       console.error('[Stripe Checkout Error]', err);
-      // Fallback fallback upgrade
-      await prisma.user.update({
-        where: { id: userId },
-        data: { plan },
-      });
-      return { url: `${config.server.corsOrigin}/settings?billing=success` };
+      return reply.status(502).send({ error: 'Failed to create payment checkout session. Please try again later.' });
     }
   });
 

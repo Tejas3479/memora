@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { api } from '../../api/client.js';
 import { useGraphQuery } from '../../hooks/useQueries.js';
 import { Network, Layers, Milestone, Grid, Users, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
@@ -17,6 +16,8 @@ interface GraphNode {
 interface GraphEdge {
   source: string;
   target: string;
+  sourceId?: string;
+  targetId?: string;
   type: string;
 }
 
@@ -42,7 +43,11 @@ export default function GraphPage() {
     if (!graphData) return;
 
     const rawNodes = graphData.nodes || [];
-    const rawEdges = graphData.edges || [];
+    const rawEdges: GraphEdge[] = (graphData.edges || []).map((e: any) => ({
+      ...e,
+      source: e.source || e.sourceId,
+      target: e.target || e.targetId,
+    }));
 
     // Initialize 2D coordinates for physics engine
     const initializedNodes: GraphNode[] = rawNodes.map((node: any) => ({
@@ -81,6 +86,13 @@ export default function GraphPage() {
         const angle = (i / nodes.length) * Math.PI * 2;
         x = Math.cos(angle) * 180;
         y = Math.sin(angle) * 180;
+      } else if (layoutPreset === 'board') {
+        // Arrange in a clean 2D grid
+        const cols = Math.ceil(Math.sqrt(nodes.length)) || 1;
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        x = (col - cols / 2) * 80;
+        y = (row - Math.ceil(nodes.length / cols) / 2) * 80;
       } else {
         // Random cluster scatter
         x = Math.random() * 300 - 150;

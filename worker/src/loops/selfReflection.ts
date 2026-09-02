@@ -1,11 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config.js';
 import { SelfReflectionInput, SelfReflectionOutput, createLogger } from '@memora/shared';
-
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma.js';
 
 const logger = createLogger('SelfReflectionLoop');
-const prisma = new PrismaClient();
 
 export class SelfReflectionLoop {
   private ai: GoogleGenerativeAI | null = null;

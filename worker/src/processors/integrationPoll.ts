@@ -48,8 +48,12 @@ async function embedText(text: string): Promise<number[]> {
     );
     return body.data[0].embedding;
   } catch (err) {
-    logger.warn('Voyage fetch failed, using fallback vector', err);
-    const vec = new Array(size).fill(0).map(() => Math.random());
+    logger.warn('Voyage fetch failed, using deterministic fallback vector', err);
+    const vec = new Array(size).fill(0);
+    for (let i = 0; i < text.length; i++) {
+      const idx = (text.charCodeAt(i) * 31 + i) % size;
+      vec[idx] += 1 / (1 + (i % 7));
+    }
     const mag = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0)) || 1;
     return vec.map((v) => v / mag);
   }
@@ -89,8 +93,27 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
           for (const msg of data.messages) {
             if (!msg.text) continue;
 
+            const msgUrl = `slack://message/${msg.ts}`;
+            const existing = await prisma.memory.findFirst({
+              where: { userId, url: msgUrl },
+            });
+            if (existing) continue;
+
             const textVector = await embedText(msg.text);
-            const memoryId = crypto.randomUUID();
+            const memory = await prisma.memory.create({
+              data: {
+                userId,
+                title: `Slack Message from ${msg.user || 'Unknown'}`,
+                content: msg.text,
+                source: 'SLACK',
+                url: msgUrl,
+                metadata: {
+                  ts: msg.ts,
+                  channel: 'C0123456',
+                },
+              },
+            });
+            const memoryId = memory.id;
 
             await qdrantBreaker.execute(() =>
               retry(
@@ -103,8 +126,9 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
                       payload: {
                         userId,
                         chunkId: crypto.randomUUID(),
+                        memoryId,
                         source: 'SLACK',
-                        url: `slack://message/${msg.ts}`,
+                        url: msgUrl,
                         title: `Slack Message from ${msg.user || 'Unknown'}`,
                         content: msg.text,
                         timestamp: Math.floor(Date.now() / 1000),
@@ -162,8 +186,25 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
             const pageUrl = page.url || `notion://${page.id}`;
             const pageContent = `Notion Page: ${pageTitle}\nLast Edited: ${page.last_edited_time}`;
 
+            const existing = await prisma.memory.findFirst({
+              where: { userId, url: pageUrl },
+            });
+            if (existing) continue;
+
             const textVector = await embedText(pageContent);
-            const memoryId = crypto.randomUUID();
+            const memory = await prisma.memory.create({
+              data: {
+                userId,
+                title: pageTitle,
+                content: pageContent,
+                source: 'NOTION',
+                url: pageUrl,
+                metadata: {
+                  notionId: page.id,
+                },
+              },
+            });
+            const memoryId = memory.id;
 
             await qdrantBreaker.execute(() =>
               retry(
@@ -176,6 +217,7 @@ export async function integrationPollProcessor(job: Job): Promise<number> {
                       payload: {
                         userId,
                         chunkId: crypto.randomUUID(),
+                        memoryId,
                         source: 'NOTION',
                         url: pageUrl,
                         title: pageTitle,
