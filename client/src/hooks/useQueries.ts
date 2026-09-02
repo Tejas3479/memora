@@ -35,6 +35,37 @@ export function useTimelineInfiniteQuery(filters: TimelineFilters = {}) {
   });
 }
 
+export function useCreateMemoryMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { title: string; content: string; source?: string; url?: string; folderId?: string }) =>
+      api.post('/api/ingest', {
+        title: data.title,
+        content: data.content,
+        source: data.source || 'NOTE',
+        url: data.url || `note://${Date.now()}`,
+        metadata: data.folderId ? { folderId: data.folderId } : {},
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      queryClient.invalidateQueries({ queryKey: ['graph'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+    },
+  });
+}
+
+export function useUploadFileMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (formData: FormData) => api.upload('/api/upload', formData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      queryClient.invalidateQueries({ queryKey: ['graph'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+    },
+  });
+}
+
 // ─── Folders Queries & Mutations ─────────────────────────────────────────────
 
 export function useFoldersQuery() {

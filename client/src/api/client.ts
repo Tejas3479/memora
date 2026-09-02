@@ -98,6 +98,48 @@ class ApiClient {
   public delete(path: string) {
     return this.request('DELETE', path);
   }
+
+  public async upload(path: string, formData: FormData): Promise<any> {
+    let token = useAuthStore.getState().accessToken;
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(path, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: formData,
+    });
+
+    if (response.status === 401) {
+      const newToken = await this.getRefreshedToken();
+      if (newToken) {
+        headers['Authorization'] = `Bearer ${newToken}`;
+        const retryResponse = await fetch(path, {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          body: formData,
+        });
+        if (!retryResponse.ok) {
+          const err = await retryResponse.json().catch(() => ({}));
+          throw new Error(err.error?.message || `Upload failed with status ${retryResponse.status}`);
+        }
+        return retryResponse.json();
+      } else {
+        throw new Error('Unauthorized session expired');
+      }
+    }
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Upload failed with status ${response.status}`);
+    }
+
+    return response.json();
+  }
 }
 
 export const api = new ApiClient();

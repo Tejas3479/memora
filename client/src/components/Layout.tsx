@@ -18,7 +18,9 @@ import {
   Menu,
   Eye,
   EyeOff,
+  Plus,
 } from 'lucide-react';
+import CaptureModal from './CaptureModal.js';
 
 function FocusTimer() {
   const [seconds, setSeconds] = React.useState(0);
@@ -66,6 +68,7 @@ export default function Layout() {
   
   const { user, logout } = useAuthStore();
   const { sidebarOpen, toggleSidebar, notifications, removeNotification, adhdFocusMode, toggleAdhdFocusMode } = useUiStore();
+  const [isCaptureModalOpen, setIsCaptureModalOpen] = React.useState(false);
   
   // Initialize hooks
   useWebSocket();
@@ -90,6 +93,8 @@ export default function Layout() {
 
   return (
     <div className={`flex h-screen w-screen bg-memora-bg text-memora-text overflow-hidden ${adhdFocusMode ? 'adhd-focus-active' : ''}`}>
+      <CaptureModal isOpen={isCaptureModalOpen} onClose={() => setIsCaptureModalOpen(false)} />
+
       {/* Toast notifications container */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
         {notifications.map((n) => (
@@ -120,6 +125,17 @@ export default function Layout() {
             </span>
             <button onClick={toggleSidebar} className="p-1 rounded hover:bg-memora-border">
               <Menu size={20} />
+            </button>
+          </div>
+
+          {/* Quick Capture Button */}
+          <div className="p-3 pb-0">
+            <button
+              onClick={() => setIsCaptureModalOpen(true)}
+              className={`w-full py-2.5 px-3 bg-memora-accent hover:bg-memora-accent-hover text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-memora-accent-glow transition-all active:scale-95 cursor-pointer`}
+            >
+              <Plus size={16} />
+              <span className={`${!sidebarOpen && 'hidden'}`}>New Memory</span>
             </button>
           </div>
           

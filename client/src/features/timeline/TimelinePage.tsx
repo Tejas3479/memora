@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTimelineInfiniteQuery } from '../../hooks/useQueries.js';
 import MemoryCard from '../../components/MemoryCard.js';
+import CaptureModal from '../../components/CaptureModal.js';
 import useInfiniteScroll from '../../hooks/useInfiniteScroll.js';
+import { Plus } from 'lucide-react';
 
 export default function TimelinePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -11,6 +13,7 @@ export default function TimelinePage() {
   const [sourceFilter, setSourceFilter] = useState(paramSource);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [isCaptureOpen, setIsCaptureOpen] = useState(false);
 
   useEffect(() => {
     if (paramSource) {
@@ -60,7 +63,16 @@ export default function TimelinePage() {
           <h1 className="text-2xl font-bold text-white tracking-wide">Memory Timeline</h1>
           <p className="text-sm text-memora-text-muted">Chronological history of all indexed captures.</p>
         </div>
+        <button
+          onClick={() => setIsCaptureOpen(true)}
+          className="px-4 py-2 bg-memora-accent text-white font-semibold rounded-lg text-sm hover:bg-memora-accent-hover active:scale-95 transition-all duration-200 cursor-pointer shadow-lg shadow-memora-accent-glow flex items-center gap-1.5"
+        >
+          <Plus size={16} />
+          Capture Memory
+        </button>
       </div>
+
+      <CaptureModal isOpen={isCaptureOpen} onClose={() => setIsCaptureOpen(false)} />
 
       {/* Date Scrubber */}
       <div className="flex flex-wrap items-center gap-3 bg-memora-surface/60 border border-memora-border p-3 rounded-2xl text-xs select-none">
