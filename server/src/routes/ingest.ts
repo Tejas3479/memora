@@ -18,6 +18,8 @@ import pdf from 'pdf-parse/lib/pdf-parse.js';
 // @ts-ignore
 import mammoth from 'mammoth';
 import { createWorker } from 'tesseract.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { config } from '../config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
@@ -169,6 +171,20 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
         const parsed = await pdf(buffer);
         text = parsed.text || '';
         source = 'DOCUMENT';
+
+        // Scanned PDF fallback: if text extraction is sparse, attempt OCR
+        if (!text.trim() || text.trim().length < 20) {
+          try {
+            const worker = await createWorker('eng');
+            const ocrRet = await worker.recognize(buffer);
+            if (ocrRet.data.text && ocrRet.data.text.trim().length > text.trim().length) {
+              text = ocrRet.data.text.trim();
+            }
+            await worker.terminate();
+          } catch (pdfOcrErr) {
+            console.warn('[UploadRoute] Scanned PDF OCR fallback failed:', pdfOcrErr);
+          }
+        }
       } else if (data.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         const parsed = await mammoth.extractRawText({ buffer });
         text = parsed.value || '';
@@ -186,6 +202,30 @@ export default async function ingestRoutes(fastify: FastifyInstance) {
         } catch (ocrErr) {
           console.warn('[UploadRoute] OCR processing failed:', ocrErr);
           text = `OCR failed for image: ${data.filename}`;
+        }
+      } else if (data.mimetype.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|webm|aac)$/i.test(data.filename)) {
+        source = 'DOCUMENT';
+        if (config.llm.googleApiKey) {
+          try {
+            const genAI = new GoogleGenerativeAI(config.llm.googleApiKey);
+            const model = genAI.getGenerativeModel({ model: config.llm.model });
+            const prompt = 'Please transcribe this audio accurately. Return only the transcription text.';
+            const res = await model.generateContent([
+              prompt,
+              {
+                inlineData: {
+                  data: buffer.toString('base64'),
+                  mimeType: data.mimetype.startsWith('audio/') ? data.mimetype : 'audio/mp3',
+                },
+              },
+            ]);
+            text = res.response.text().trim();
+          } catch (audioErr) {
+            console.warn('[UploadRoute] Audio transcription failed:', audioErr);
+            text = `Audio recording: ${data.filename}`;
+          }
+        } else {
+          text = `Audio recording: ${data.filename} (${Math.round(buffer.length / 1024)} KB)`;
         }
       } else {
         throw new ValidationError(`Unsupported file type: ${data.mimetype}`);

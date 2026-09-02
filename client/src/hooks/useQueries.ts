@@ -236,6 +236,39 @@ export function useCreatePersonMutation() {
   });
 }
 
+export function usePersonDetailsQuery(personId: string) {
+  return useQuery({
+    queryKey: ['people', personId],
+    queryFn: async () => {
+      if (!personId) return null;
+      return api.get(`/api/people/${personId}`);
+    },
+    enabled: Boolean(personId),
+  });
+}
+
+export function useUpdatePersonMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; email?: string; company?: string; role?: string; notes?: string } }) =>
+      api.put(`/api/people/${id}`, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['people', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['people'] });
+    },
+  });
+}
+
+export function useDeletePersonMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/people/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['people'] });
+    },
+  });
+}
+
 // ─── Integrations & Billing Queries ──────────────────────────────────────────
 
 export function useIntegrationsQuery() {

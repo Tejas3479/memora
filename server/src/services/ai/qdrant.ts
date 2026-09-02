@@ -94,6 +94,10 @@ export class QdrantService {
           field_schema: 'keyword',
         });
         await this.client.createPayloadIndex(QDRANT_COLLECTION, {
+          field_name: 'metadata.memoryId',
+          field_schema: 'keyword',
+        });
+        await this.client.createPayloadIndex(QDRANT_COLLECTION, {
           field_name: 'title',
           field_schema: 'text',
         });
