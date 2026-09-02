@@ -102,9 +102,7 @@ export default async function exportRoutes(fastify: FastifyInstance) {
     if (format === 'zip') {
       const jsonData = JSON.stringify(exportData, null, 2);
       const zipBuffer = createUncompressedZip('memora_export.json', jsonData);
-      reply.header('Content-Type', 'application/zip');
-      reply.header('Content-Disposition', 'attachment; filename="memora_export.zip"');
-      return reply.send(zipBuffer);
+      return { format: 'zip', data: zipBuffer.toString('base64'), filename: 'memora_export.zip' };
     }
 
     if (format === 'csv') {
@@ -123,6 +121,58 @@ export default async function exportRoutes(fastify: FastifyInstance) {
     }
 
     return { format: 'json', data: exportData };
+  });
+
+  fastify.get('/api/export/download', { preHandler: authMiddleware }, async (request, reply) => {
+    const userId = request.user!.userId;
+    const { format = 'json' } = request.query as any;
+
+    const memories = await prisma.memory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: { folder: true, highlights: true },
+    });
+
+    const exportData = memories.map((m) => ({
+      id: m.id,
+      title: m.title,
+      content: m.content,
+      source: m.source,
+      url: m.url,
+      folder: m.folder?.name || null,
+      highlights: m.highlights.map((h) => ({ text: h.text, note: h.note })),
+      createdAt: m.createdAt.toISOString(),
+      updatedAt: m.updatedAt.toISOString(),
+    }));
+
+    if (format === 'csv') {
+      const headers = ['id', 'title', 'content', 'url', 'source', 'folder', 'createdAt'];
+      const rows = exportData.map((r) => [
+        r.id,
+        `"${r.title.replace(/"/g, '""')}"`,
+        `"${r.content.replace(/"/g, '""')}"`,
+        r.url,
+        r.source,
+        `"${(r.folder || '').replace(/"/g, '""')}"`,
+        r.createdAt,
+      ]);
+      const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+      reply.header('Content-Type', 'text/csv');
+      reply.header('Content-Disposition', 'attachment; filename="memora_export.csv"');
+      return reply.send(csvContent);
+    }
+
+    if (format === 'zip') {
+      const jsonData = JSON.stringify(exportData, null, 2);
+      const zipBuffer = createUncompressedZip('memora_export.json', jsonData);
+      reply.header('Content-Type', 'application/zip');
+      reply.header('Content-Disposition', 'attachment; filename="memora_export.zip"');
+      return reply.send(zipBuffer);
+    }
+
+    reply.header('Content-Type', 'application/json');
+    reply.header('Content-Disposition', 'attachment; filename="memora_export.json"');
+    return reply.send(JSON.stringify(exportData, null, 2));
   });
 
   fastify.get('/api/export/status/:jobId', { preHandler: authMiddleware }, async () => {

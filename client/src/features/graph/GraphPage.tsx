@@ -435,8 +435,47 @@ export default function GraphPage() {
                 </div>
               </div>
 
-              <div className="bg-[#050508]/60 border border-memora-border p-4 rounded-xl text-xs text-memora-text-muted leading-relaxed">
-                Click and drag nodes inside the canvas space to reorganize, and use zoom controls to traverse deep hierarchies.
+              {/* Connected Relationships & Traversal */}
+              {(() => {
+                const connectedEdges = edges.filter((e) => e.source === selectedNode.id || e.target === selectedNode.id);
+                const neighborIds = connectedEdges.map((e) => (e.source === selectedNode.id ? e.target : e.source));
+                const neighborNodes = nodes.filter((n) => neighborIds.includes(n.id));
+
+                return (
+                  <div className="flex flex-col gap-2 pt-2 border-t border-memora-border/40">
+                    <span className="text-xs font-semibold text-memora-text-muted uppercase tracking-wider">
+                      Connected Nodes ({neighborNodes.length})
+                    </span>
+                    {neighborNodes.length > 0 ? (
+                      <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1">
+                        {neighborNodes.map((neighbor) => (
+                          <div
+                            key={neighbor.id}
+                            onClick={() => {
+                              setSelectedNode(neighbor);
+                              setPanX(-neighbor.x * zoom);
+                              setPanY(-neighbor.y * zoom);
+                            }}
+                            className="p-2 rounded-lg bg-memora-bg/60 border border-white/5 hover:border-memora-accent/40 text-xs flex justify-between items-center cursor-pointer transition-all hover:bg-memora-accent/10 group"
+                          >
+                            <span className="font-medium text-white truncate max-w-[11rem] group-hover:text-memora-accent">
+                              {neighbor.label}
+                            </span>
+                            <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-memora-text-muted shrink-0">
+                              {neighbor.type}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-memora-text-muted">No direct entity edges recorded.</span>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <div className="bg-[#050508]/60 border border-memora-border p-3.5 rounded-xl text-xs text-memora-text-muted leading-relaxed">
+                Click connected entities to traverse through graph relationships. Drag nodes inside canvas space to reorganize clusters.
               </div>
             </div>
           )}

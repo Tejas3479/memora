@@ -3,15 +3,17 @@ import { useIntegrationsQuery, useDisconnectIntegrationMutation, useBillingQuery
 import { useUiStore } from '../../store/uiStore.js';
 import { useAuthStore } from '../../store/authStore.js';
 import { api } from '../../api/client.js';
-import { Globe, BookOpen, MessageSquare, Github } from 'lucide-react';
+import { Globe, BookOpen, MessageSquare, Github, Download, FileText, Archive, Database, CheckCircle } from 'lucide-react';
 
 export default function SettingsPage() {
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'integrations' | 'preferences' | 'billing'>('profile');
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'integrations' | 'preferences' | 'billing' | 'export'>('profile');
   const { user } = useAuthStore();
   const { data: integrations = [] } = useIntegrationsQuery();
   const { data: billingData } = useBillingQuery();
   const disconnectMutation = useDisconnectIntegrationMutation();
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
 
   const {
     adhdFocusMode,
@@ -92,6 +94,52 @@ export default function SettingsPage() {
     }
   };
 
+  const handleExport = async (format: 'json' | 'csv' | 'zip') => {
+    try {
+      setIsExporting(true);
+      setExportMessage(null);
+      const res = await api.post('/api/export', { format });
+      if (format === 'csv' && res.data) {
+        const blob = new Blob([res.data], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'memora_export.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        setExportMessage('CSV export downloaded successfully.');
+      } else if (format === 'zip' && res.data) {
+        const byteCharacters = atob(res.data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/zip' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = res.filename || 'memora_export.zip';
+        a.click();
+        URL.revokeObjectURL(url);
+        setExportMessage('ZIP archive downloaded successfully.');
+      } else if (format === 'json' && res.data) {
+        const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'memora_export.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        setExportMessage('JSON export downloaded successfully.');
+      }
+    } catch (err: any) {
+      setExportMessage(`Export failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const integrationsList = [
     { provider: 'slack', label: 'Slack', desc: 'Sync conversations and starred items', icon: MessageSquare },
     { provider: 'notion', label: 'Notion', desc: 'Index shared team workspaces and pages', icon: BookOpen },
@@ -143,6 +191,16 @@ export default function SettingsPage() {
           }`}
         >
           Plans & Billing
+        </button>
+        <button
+          onClick={() => setActiveSubTab('export')}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeSubTab === 'export'
+              ? 'bg-memora-accent text-white'
+              : 'text-memora-text-muted hover:text-white hover:bg-memora-surface'
+          }`}
+        >
+          Export & Backup
         </button>
       </div>
 
@@ -351,6 +409,86 @@ export default function SettingsPage() {
                 {isUpgrading ? 'Redirecting to checkout...' : 'Upgrade to Pro ($9.99/mo)'}
               </button>
             )}
+          </div>
+        )}
+
+        {activeSubTab === 'export' && (
+          <div className="glass p-6 rounded-xl flex flex-col gap-6">
+            <div>
+              <h2 className="text-lg font-bold text-white">Data Portability & Export</h2>
+              <p className="text-xs text-memora-text-muted mt-0.5">
+                Export your full second brain index, documents, and notes in open portable formats.
+              </p>
+            </div>
+
+            {exportMessage && (
+              <div className="p-3 rounded-xl bg-memora-accent/10 border border-memora-accent/20 flex items-center gap-2 text-xs text-white">
+                <CheckCircle size={14} className="text-memora-accent shrink-0" />
+                <span>{exportMessage}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-memora-bg/60 border border-memora-border p-4 rounded-xl flex flex-col justify-between gap-4">
+                <div className="flex flex-col gap-2">
+                  <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 w-fit text-emerald-400">
+                    <FileText size={20} />
+                  </div>
+                  <span className="font-semibold text-white text-sm">JSON Format</span>
+                  <span className="text-xs text-memora-text-muted">
+                    Full structured snapshot with embeddings metadata and folder hierarchies.
+                  </span>
+                </div>
+                <button
+                  disabled={isExporting}
+                  onClick={() => handleExport('json')}
+                  className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Download size={14} />
+                  {isExporting ? 'Exporting...' : 'Download JSON'}
+                </button>
+              </div>
+
+              <div className="bg-memora-bg/60 border border-memora-border p-4 rounded-xl flex flex-col justify-between gap-4">
+                <div className="flex flex-col gap-2">
+                  <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 w-fit text-blue-400">
+                    <Database size={20} />
+                  </div>
+                  <span className="font-semibold text-white text-sm">CSV Spreadsheet</span>
+                  <span className="text-xs text-memora-text-muted">
+                    Tabular format ideal for Excel, Google Sheets, or data analytics pipelines.
+                  </span>
+                </div>
+                <button
+                  disabled={isExporting}
+                  onClick={() => handleExport('csv')}
+                  className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Download size={14} />
+                  {isExporting ? 'Exporting...' : 'Download CSV'}
+                </button>
+              </div>
+
+              <div className="bg-memora-bg/60 border border-memora-border p-4 rounded-xl flex flex-col justify-between gap-4">
+                <div className="flex flex-col gap-2">
+                  <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 w-fit text-purple-400">
+                    <Archive size={20} />
+                  </div>
+                  <span className="font-semibold text-white text-sm">ZIP Archive</span>
+                  <span className="text-xs text-memora-text-muted">
+                    Compressed archive containing all indexed documents and highlights.
+                  </span>
+                </div>
+                <button
+                  disabled={isExporting}
+                  onClick={() => handleExport('zip')}
+                  className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Download size={14} />
+                  {isExporting ? 'Exporting...' : 'Download ZIP'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
